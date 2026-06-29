@@ -1,44 +1,85 @@
 {
   "expo": {
-    "name": "votasnap-app",
-    "slug": "votasnap-app",
+    "name": "VotaSnap",
+    "slug": "votasnap",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "votasnapapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icons/icon.png",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "supportsTablet": false,
+      "bundleIdentifier": "mz.votasnap.app",
+      "associatedDomains": [
+        "applinks:votasnap.mz"
+      ],
+      "icon": "./assets/icons/icon.png"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icons/adaptive-icon.png",
+        "backgroundColor": "#0D0D0D"
       },
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "package": "mz.votasnap.app",
+      "permissions": [],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "votasnap.vercel.app",
+              "pathPrefix": "/challenge"
+            },
+            {
+              "scheme": "https",
+              "host": "votasnap.vercel.app",
+              "pathPrefix": "/entry"
+            },
+            {
+              "scheme": "votasnap",
+              "host": "entry"
+            },
+            {
+              "scheme": "votasnap",
+              "host": "challenge"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "plugins": [
       "expo-router",
+      "expo-font",
       [
-        "expo-splash-screen",
+        "expo-build-properties",
         {
-          "backgroundColor": "#208AEF",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+          "ios": {
+            "useFrameworks": "static"
           }
+        }
+      ],
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "color": "#ff286a",
+          "sounds": []
         }
       ]
     ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    }
+    "scheme": "votasnap",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "75a5381a-a892-4dae-ac00-7314b8c84966"
+      }
+    },
+    "owner": "mohvi"
   }
 }

@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1086936699830",
+    "firebase_url": "https://votasnap-default-rtdb.firebaseio.com",
+    "project_id": "votasnap",
+    "storage_bucket": "votasnap.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1086936699830:android:5ff5924addfa92fa006717",
+        "android_client_info": {
+          "package_name": "mz.votasnap.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1086936699830-s2p8lbr2nobdu2lklknnajjbiklt3gua.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBp78z12opuwhUc0fUovqp_gg_jMwxhCAU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1086936699830-nt50thrs40d43emi64chqqi1lp3752dn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
