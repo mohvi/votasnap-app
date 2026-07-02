@@ -27,6 +27,7 @@ interface ChallengeInfo {
   endsAt: number;
   totalParticipants: number;
   coverImage?: string;
+  allowedMediaType?: 'photo' | 'video' | 'both'; // definido no CreateChallengeForm
 }
 
 export default function SubmitScreen() {
@@ -40,6 +41,10 @@ export default function SubmitScreen() {
   const [challengeInfo, setChallengeInfo] = useState<ChallengeInfo | null>(null);
 
   const uid = auth.currentUser?.uid;
+
+  // Mídia aceite pelo desafio — se o campo não existir (desafios antigos
+  // criados antes desta mudança de schema), assume 'both' para não quebrar.
+  const allowedMediaType = challengeInfo?.allowedMediaType || 'both';
 
   // Carrega os detalhes completos do desafio
   useEffect(() => {
@@ -78,62 +83,85 @@ export default function SubmitScreen() {
     checkExisting();
   }, [id]);
 
+  const pickPhotoFromGallery = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+      base64: false,
+    });
+    if (!result.canceled) {
+      setMedia(result.assets[0].uri);
+      setMediaType('photo');
+    }
+  };
+
+  const pickVideoFromGallery = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      allowsEditing: true,
+      videoMaxDuration: 60,
+    });
+    if (!result.canceled) {
+      setMedia(result.assets[0].uri);
+      setMediaType('video');
+    }
+  };
+
+  // A câmara agora grava foto ou vídeo consoante o que o desafio aceita.
+  // Em desafios 'both' usa-se foto por omissão (comportamento anterior).
+  const captureFromCamera = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) return;
+
+    if (allowedMediaType === 'video') {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        videoMaxDuration: 60,
+      });
+      if (!result.canceled) {
+        setMedia(result.assets[0].uri);
+        setMediaType('video');
+      }
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      setMedia(result.assets[0].uri);
+      setMediaType('photo');
+    }
+  };
+
   const handlePickMedia = async () => {
-    Alert.alert(
-      'Escolher media',
-      'O que queres publicar?',
-      [
-        {
-          text: 'Foto',
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) return;
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              quality: 0.7,
-              base64: false,
-            });
-            if (!result.canceled) {
-              setMedia(result.assets[0].uri);
-              setMediaType('photo');
-            }
-          },
-        },
-        {
-          text: 'Vídeo',
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) return;
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              allowsEditing: true,
-              videoMaxDuration: 60,
-            });
-            if (!result.canceled) {
-              setMedia(result.assets[0].uri);
-              setMediaType('video');
-            }
-          },
-        },
-        {
-          text: 'Câmara',
-          onPress: async () => {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) return;
-            const result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              quality: 0.7,
-            });
-            if (!result.canceled) {
-              setMedia(result.assets[0].uri);
-              setMediaType('photo');
-            }
-          },
-        },
-        { text: 'Cancelar', style: 'cancel' },
-      ]
-    );
+    // Monta as opções do Alert dinamicamente consoante allowedMediaType,
+    // em vez de oferecer sempre Foto + Vídeo + Câmara.
+    const options: { text: string; onPress?: () => void; style?: 'cancel' }[] = [];
+
+    if (allowedMediaType === 'photo' || allowedMediaType === 'both') {
+      options.push({ text: 'Foto', onPress: pickPhotoFromGallery });
+    }
+    if (allowedMediaType === 'video' || allowedMediaType === 'both') {
+      options.push({ text: 'Vídeo', onPress: pickVideoFromGallery });
+    }
+    options.push({ text: 'Câmara', onPress: captureFromCamera });
+    options.push({ text: 'Cancelar', style: 'cancel' });
+
+    const mediaLabel =
+      allowedMediaType === 'photo' ? 'uma foto' :
+      allowedMediaType === 'video' ? 'um vídeo' :
+      'uma foto ou vídeo';
+
+    Alert.alert('Escolher media', `Este desafio aceita ${mediaLabel}`, options);
   };
 
   const uploadFileToStorage = async (localUri: string, challengeId: string, userId: string): Promise<string> => {
@@ -174,6 +202,15 @@ export default function SubmitScreen() {
   const handleSubmit = async () => {
     if (!media) {
       Alert.alert('Atenção', 'Escolhe uma foto ou vídeo');
+      return;
+    }
+    // Segunda barreira, depois da seleção: garante que ninguém chega aqui
+    // com um mediaType incompatível (ex: app desatualizada, estado antigo).
+    if (mediaType && allowedMediaType !== 'both' && mediaType !== allowedMediaType) {
+      Alert.alert(
+        'Tipo de mídia não permitido',
+        `Este desafio só aceita ${allowedMediaType === 'photo' ? 'fotos' : 'vídeos'}.`
+      );
       return;
     }
     if (!caption.trim()) {
@@ -338,6 +375,15 @@ export default function SubmitScreen() {
                 </View>
               </View>
 
+              {/* Indica claramente que tipo de mídia este desafio aceita */}
+              <View style={styles.mediaTypePill}>
+                <Text style={styles.mediaTypePillText}>
+                  {allowedMediaType === 'photo' && '📸 Só fotos'}
+                  {allowedMediaType === 'video' && '🎬 Só vídeos'}
+                  {allowedMediaType === 'both' && '📸🎬 Foto ou vídeo'}
+                </Text>
+              </View>
+
               {challengeInfo.sponsor && (
                 <View style={styles.sponsorPill}>
                   <Text style={styles.sponsorPillText}>📢 Patrocinado por {challengeInfo.sponsor}</Text>
@@ -369,9 +415,15 @@ export default function SubmitScreen() {
           ) : (
             <View style={styles.uploadEmpty}>
               <View style={styles.uploadIconCircle}>
-                <Text style={styles.uploadEmoji}>📷</Text>
+                <Text style={styles.uploadEmoji}>
+                  {allowedMediaType === 'video' ? '🎬' : '📷'}
+                </Text>
               </View>
-              <Text style={styles.uploadText}>Adiciona uma foto ou vídeo</Text>
+              <Text style={styles.uploadText}>
+                {allowedMediaType === 'photo' && 'Adiciona uma foto'}
+                {allowedMediaType === 'video' && 'Adiciona um vídeo'}
+                {allowedMediaType === 'both' && 'Adiciona uma foto ou vídeo'}
+              </Text>
               <Text style={styles.uploadSub}>Toca para escolher da galeria ou câmara</Text>
             </View>
           )}
@@ -522,6 +574,20 @@ const styles = StyleSheet.create({
     width: 1,
     height: 16,
     backgroundColor: '#2a2a2a',
+  },
+  mediaTypePill: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+  },
+  mediaTypePillText: {
+    color: '#ccc',
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
   },
   sponsorPill: {
     backgroundColor: 'rgba(255,40,106,0.1)',

@@ -1,32 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import { get, ref, set, update } from 'firebase/database';
+import { get, ref, remove, runTransaction, set } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
+  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ActiveChallengeBanner from '../../components/challenge/ActiveChallengeBanner';
 import FeedCard from '../../components/feed/FeedCard';
 import AuthPrompt from '../../components/ui/AuthPrompt';
 import OnboardingModal from '../../components/ui/OnboardingModal';
-import SnapsCounter from '../../components/ui/SnapsCounter';
 import { useActiveChallenge } from '../../hooks/useActiveChallenge';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeedEntries } from '../../hooks/useFeedEntries';
@@ -34,26 +25,21 @@ import { auth, db } from '../../services/firebase';
 import { notifyVoteReceived } from '../../services/notifications';
 
 const { width, height } = Dimensions.get('window');
-const SWIPE_THRESHOLD = width * 0.3;
 
 export default function FeedScreen() {
-  const { freshEntries, allEntries, loading, refresh } = useFeedEntries();
+  const { allEntries, loading, refresh, userVotes } = useFeedEntries();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const [index, setIndex] = useState(0);
-  const [reviewed, setReviewed] = useState(false);
-  const [isVoting, setIsVoting] = useState(false);
-  const [isSkipping, setIsSkipping] = useState(false);
-  const [pendingSwipe, setPendingSwipe] = useState(false);
-  const [isFocused, setIsFocused] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFocused, setIsFocused] = useState(true);
+  const [votingId, setVotingId] = useState<string | null>(null);
+  const [bannerExpanded, setBannerExpanded] = useState(true); // controla se o banner aparece inteiro ou minimizado
+
+  const flatListRef = useRef<FlatList>(null);
   const { isLoggedIn } = useAuth();
   const { challenge: activeChallenge } = useActiveChallenge();
-
-  const processingRef = useRef(false);
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
+  const insets = useSafeAreaInsets();
   const uid = auth.currentUser?.uid;
-  const activeEntries = reviewed ? allEntries : freshEntries;
 
   useFocusEffect(
     useCallback(() => {
@@ -65,9 +51,7 @@ export default function FeedScreen() {
   useEffect(() => {
     const checkOnboarding = async () => {
       const seen = await AsyncStorage.getItem('hasSeenAppOnboarding');
-      if (!seen) {
-        setShowOnboarding(true);
-      }
+      if (!seen) setShowOnboarding(true);
     };
     checkOnboarding();
   }, []);
@@ -77,157 +61,117 @@ export default function FeedScreen() {
     setShowOnboarding(false);
   };
 
-  const castVote = useCallback(async (entryId: string, challengeId: string) => {
+  const handleLike = useCallback(async (entry: any) => {
+    if (!isLoggedIn) {
+      setShowAuthPrompt(true);
+      return;
+    }
     if (!uid) return;
+    if (entry.userId === uid) return; // não podes votar em ti mesmo
+    if (votingId) return; // evita cliques em sequência rápida
+
+    const votedEntryIdForChallenge = userVotes[entry.challengeId];
+    const isUnvoting = votedEntryIdForChallenge === entry.id;
+
+    // já votaste noutra participação deste MESMO desafio
+    if (!isUnvoting && votedEntryIdForChallenge) {
+      Alert.alert(
+        'Já votaste neste desafio',
+        'Só podes votar numa participação por desafio. Remove o teu voto atual (❤️) se quiseres votar noutra.'
+      );
+      return;
+    }
+
+    setVotingId(entry.id);
+
     try {
-      await set(ref(db, `votes/${challengeId}/${uid}`), {
-        entryId,
-        votedAt: Date.now(),
-      });
+      const votesCountRef = ref(db, `entries/${entry.challengeId}/${entry.id}/votes`);
+      const totalVotesRef = ref(db, `challenges/${entry.challengeId}/totalVotes`);
 
-      const entrySnap = await get(ref(db, `entries/${challengeId}/${entryId}`));
-      const entryData = entrySnap.val();
-      const currentVotes = entryData?.votes || 0;
+      if (isUnvoting) {
+        // Remove o voto
+        await remove(ref(db, `votes/${entry.challengeId}/${uid}`));
+        await runTransaction(votesCountRef, current => Math.max((current || 0) - 1, 0));
+        await runTransaction(totalVotesRef, current => Math.max((current || 0) - 1, 0));
+      } else {
+        // Regista o voto
+        await set(ref(db, `votes/${entry.challengeId}/${uid}`), {
+          entryId: entry.id,
+          votedAt: Date.now(),
+        });
+        await runTransaction(votesCountRef, current => (current || 0) + 1);
+        await runTransaction(totalVotesRef, current => (current || 0) + 1);
 
-      await update(ref(db, `entries/${challengeId}/${entryId}`), {
-        votes: currentVotes + 1,
-      });
+        const voterSnap = await get(ref(db, `users/${uid}`));
+        const voterName = voterSnap.val()?.name || 'Alguém';
+        const challengeSnap = await get(ref(db, `challenges/${entry.challengeId}`));
+        const challengeTitle = challengeSnap.val()?.title || 'um desafio';
 
-      const challengeSnap = await get(ref(db, `challenges/${challengeId}`));
-      const currentTotal = challengeSnap.val()?.totalVotes || 0;
-      await update(ref(db, `challenges/${challengeId}`), {
-        totalVotes: currentTotal + 1,
-      });
-
-      const voterSnap = await get(ref(db, `users/${uid}`));
-      const voterName = voterSnap.val()?.name || 'Alguém';
-      const challengeTitle = challengeSnap.val()?.title || 'um desafio';
-
-      if (entryData?.userId && entryData.userId !== uid) {
         await notifyVoteReceived({
-          entryOwnerId: entryData.userId,
+          entryOwnerId: entry.userId,
           voterName,
           challengeTitle,
-          challengeId,
-          entryId,
+          challengeId: entry.challengeId,
+          entryId: entry.id,
         });
       }
     } catch (e) {
       console.error('Erro ao votar:', e);
+      Alert.alert('Erro', 'Não foi possível registar o teu voto. Tenta novamente.');
+    } finally {
+      setVotingId(null);
     }
-  }, [uid]);
+  }, [uid, isLoggedIn, userVotes, votingId]);
 
-  const goNext = useCallback(() => {
-    setIndex(prev => prev + 1);
-    translateX.value = 0;
-    translateY.value = 0;
-    setIsVoting(false);
-    setIsSkipping(false);
-    processingRef.current = false;
-  }, [translateX, translateY]);
-
-  const handleSwipeRight = useCallback(() => {
-    if (!isLoggedIn) {
-      setPendingSwipe(true);
-      return;
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index ?? 0);
     }
-    const entry = activeEntries[index];
-    if (entry && !reviewed) {
-      setIsVoting(true);
-      castVote(entry.id, entry.challengeId);
-    } else {
-      setIsVoting(true);
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 80,
+  }).current;
+
+  // Bloco reutilizável do banner — expandido ou minimizado (pílula)
+  const renderChallengeBanner = () => {
+    if (!activeChallenge) return null;
+
+    if (!bannerExpanded) {
+      return (
+        <TouchableOpacity
+          style={[styles.bannerPill, { top: insets.top + 8 }]}
+          onPress={() => setBannerExpanded(true)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.bannerPillText} numberOfLines={1}>
+            🏆 {activeChallenge.title}
+          </Text>
+        </TouchableOpacity>
+      );
     }
-    setTimeout(() => {
-      setIsVoting(false);
-      setIndex(prev => prev + 1);
-      translateX.value = 0;
-      translateY.value = 0;
-      processingRef.current = false;
-    }, 500);
-  }, [index, activeEntries, castVote, reviewed, isLoggedIn]);
 
-  const handleSwipeLeft = useCallback(() => {
-    setIsSkipping(true);
-    setTimeout(goNext, 400);
-  }, [goNext]);
-
-  const handleSwipeUp = useCallback(() => {
-    goNext();
-  }, [goNext]);
-
-  const gesture = Gesture.Pan()
-    .onUpdate(e => {
-      if (processingRef.current) return;
-      translateX.value = e.translationX;
-      translateY.value = e.translationY;
-    })
-    .onEnd(e => {
-      if (processingRef.current) {
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
-        return;
-      }
-      if (e.translationX > SWIPE_THRESHOLD) {
-        processingRef.current = true;
-        translateX.value = withTiming(width * 1.5, { duration: 300 });
-        runOnJS(handleSwipeRight)();
-      } else if (e.translationX < -SWIPE_THRESHOLD) {
-        processingRef.current = true;
-        translateX.value = withTiming(-width * 1.5, { duration: 300 });
-        runOnJS(handleSwipeLeft)();
-      } else if (e.translationY < -SWIPE_THRESHOLD) {
-        processingRef.current = true;
-        translateY.value = withTiming(-height * 1.5, { duration: 300 });
-        runOnJS(handleSwipeUp)();
-      } else {
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
-      }
-    });
-
-  const animStyle = useAnimatedStyle(() => {
-    const rotate = interpolate(
-      translateX.value,
-      [-width / 2, 0, width / 2],
-      [-8, 0, 8],
-      Extrapolation.CLAMP
+    return (
+      <>
+        <LinearGradient
+          colors={['rgba(0,0,0,0.75)', 'transparent']}
+          style={styles.topScrim}
+          pointerEvents="none"
+        />
+        <View style={[styles.bannerOverlay, { top: insets.top + 8 }]}>
+          <ActiveChallengeBanner challenge={activeChallenge} />
+          <TouchableOpacity
+            style={styles.collapseBtn}
+            onPress={() => setBannerExpanded(false)}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.collapseBtnText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      </>
     );
-    const scale = interpolate(
-      Math.abs(translateX.value),
-      [0, width / 2],
-      [1, 0.9],
-      Extrapolation.CLAMP
-    );
-    return {
-      transform: [
-        { translateX: translateX.value },
-        { translateY: translateY.value },
-        { rotate: `${rotate}deg` },
-        { scale },
-      ],
-    };
-  });
-
-  const handleExitReview = useCallback(() => {
-    setReviewed(false);
-    setIndex(0);
-    translateX.value = 0;
-    translateY.value = 0;
-    processingRef.current = false;
-    setIsVoting(false);
-    setIsSkipping(false);
-    refresh();
-  }, [refresh, translateX, translateY]);
-
-  useEffect(() => {
-    if (pendingSwipe) {
-      setPendingSwipe(false);
-      translateX.value = withSpring(0);
-      translateY.value = withSpring(0);
-      setShowAuthPrompt(true);
-    }
-  }, [pendingSwipe]);
+  };
 
   if (loading) {
     return (
@@ -237,20 +181,11 @@ export default function FeedScreen() {
     );
   }
 
-  // ✅ Sem entradas de todo — mensagem agora fala de "participantes", não de "desafio"
   if (allEntries.length === 0) {
     return (
       <SafeAreaView style={styles.center}>
-        {activeChallenge && (
-          <View style={styles.bannerOverlay}>
-            <ActiveChallengeBanner challenge={activeChallenge} />
-          </View>
-        )}
-        {isLoggedIn && (
-  <View style={styles.snapsWrap}>
-    <SnapsCounter />
-  </View>
-)}
+        {renderChallengeBanner()}
+
         <Text style={styles.emptyEmoji}>🎯</Text>
         <Text style={styles.emptyTitle}>Ainda não há participações</Text>
         <Text style={styles.emptySub}>
@@ -278,145 +213,59 @@ export default function FeedScreen() {
     );
   }
 
-  if (!reviewed && freshEntries.length === 0 && allEntries.length > 0) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.emptyEmoji}>✅</Text>
-        <Text style={styles.emptyTitle}>Já votaste em tudo!</Text>
-        <Text style={styles.emptySub}>
-          Já votaste em todas as participações disponíveis.{'\n'}
-          Podes rever os conteúdos que já viste.
-        </Text>
-        <TouchableOpacity
-          style={styles.reviewBtn}
-          onPress={() => {
-            setReviewed(true);
-            setIndex(0);
-            translateX.value = 0;
-            translateY.value = 0;
-            processingRef.current = false;
-          }}
-          activeOpacity={0.85}
-        >
-          <LinearGradient colors={['#1a1a1a', '#2a2a2a']} style={styles.reviewBtnGrad}>
-            <Text style={styles.reviewBtnText}>👀 Ver conteúdos</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  if (!reviewed && index >= freshEntries.length && freshEntries.length > 0) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.emptyEmoji}>✅</Text>
-        <Text style={styles.emptyTitle}>Viste tudo por agora!</Text>
-        <Text style={styles.emptySub}>
-          Já votaste em tudo o que havia.{'\n'}
-          Podes rever os conteúdos mas não podes votar novamente.
-        </Text>
-        <TouchableOpacity
-          style={styles.reviewBtn}
-          onPress={() => {
-            setReviewed(true);
-            setIndex(0);
-            translateX.value = 0;
-            translateY.value = 0;
-            processingRef.current = false;
-          }}
-          activeOpacity={0.85}
-        >
-          <LinearGradient colors={['#1a1a1a', '#2a2a2a']} style={styles.reviewBtnGrad}>
-            <Text style={styles.reviewBtnText}>👀 Rever conteúdos</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  if (reviewed && index >= allEntries.length) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.emptyEmoji}>🎉</Text>
-        <Text style={styles.emptyTitle}>Revisão concluída!</Text>
-        <Text style={styles.emptySub}>
-          Já viste todas as entradas.{'\n'}
-          Volta mais tarde para novos conteúdos.
-        </Text>
-        <TouchableOpacity
-          style={styles.reviewBtn}
-          onPress={() => {
-            setReviewed(false);
-            setIndex(0);
-            translateX.value = 0;
-            translateY.value = 0;
-            refresh();
-          }}
-          activeOpacity={0.85}
-        >
-          <LinearGradient colors={['#ff286a', '#ff8c5a']} style={styles.reviewBtnGrad}>
-            <Text style={styles.reviewBtnText}>🔄 Actualizar feed</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  if (!activeEntries[index]) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#ff286a" size="large" />
-      </View>
-    );
-  }
-
-  const entry = activeEntries[index];
-  const nextEntry = activeEntries[index + 1];
-
   return (
     <View style={styles.container}>
-      {nextEntry && (
-        <View style={[StyleSheet.absoluteFill, styles.nextCard]}>
-          <FeedCard
-            entry={nextEntry}
-            isVoting={false}
-            isSkipping={false}
-            reviewed={reviewed}
-            isActive={false}
-          />
-        </View>
-      )}
+      {renderChallengeBanner()}
 
-      <GestureDetector gesture={gesture}>
-        <Animated.View style={[StyleSheet.absoluteFill, animStyle]}>
-          <FeedCard
-            entry={entry}
-            isVoting={isVoting}
-            isSkipping={isSkipping}
-            reviewed={reviewed}
-            isActive={isFocused}
-          />
-        </Animated.View>
-      </GestureDetector>
+    
 
-      {activeChallenge && (
-        <View style={styles.bannerOverlay}>
-          <ActiveChallengeBanner challenge={activeChallenge} />
-        </View>
-      )}
+      {/* Feed vertical — cada item ocupa o ecrã inteiro, com snap de página */}
+      <FlatList
+        ref={flatListRef}
+        data={allEntries}
+        keyExtractor={item => item.id}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        decelerationRate="fast"
+        snapToInterval={height}
+        snapToAlignment="start"
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={(_, index) => ({
+          length: height,
+          offset: height * index,
+          index,
+        })}
+        renderItem={({ item, index: itemIndex }) => {
+          const hasVoted = userVotes[item.challengeId] === item.id;
+          const isOwnEntry = item.userId === uid;
+          const canLike = !isOwnEntry && isLoggedIn;
+          const isActive = isFocused && itemIndex === currentIndex;
 
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${((index + 1) / activeEntries.length) * 100}%` },
-            ]}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {index + 1} / {activeEntries.length}
-        </Text>
+          return (
+            <View style={{ width, height }}>
+              <FeedCard
+                entry={item}
+                isActive={isActive}
+                hasVoted={hasVoted}
+                isOwnEntry={isOwnEntry}
+                canLike={canLike}
+                isLiking={votingId === item.id}
+                onLike={() => handleLike(item)}
+              />
+            </View>
+          );
+        }}
+      />
+
+      {/* Indicador de progresso — fininho, topo, estilo TikTok */}
+      <View style={[styles.progressTrack, { top: insets.top }]}>
+        <View
+          style={[
+            styles.progressFill,
+            { width: `${((currentIndex + 1) / allEntries.length) * 100}%` },
+          ]}
+        />
       </View>
 
       <AuthPrompt
@@ -425,7 +274,6 @@ export default function FeedScreen() {
         action="votar"
       />
 
-      {/* ✅ comentário JSX corrigido */}
       <OnboardingModal
         visible={showOnboarding}
         onClose={handleCloseOnboarding}
@@ -436,24 +284,77 @@ export default function FeedScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  nextCard: { transform: [{ scale: 0.95 }], opacity: 0.7 },
   center: {
     flex: 1, backgroundColor: '#000',
     alignItems: 'center', justifyContent: 'center',
     gap: 12, padding: 32,
   },
-  snapsWrap: {
-  position: 'absolute',
-  top: 14,
-  right: 14,
-  zIndex: 30,
-},
   bannerOverlay: {
     position: 'absolute',
-    top: 50,
     left: 0,
     right: 0,
     zIndex: 20,
+  },
+  collapseBtn: {
+    position: 'absolute',
+    top: -6,
+    right: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    zIndex: 21,
+  },
+  collapseBtnText: {
+    color: '#fff',
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  bannerPill: {
+    position: 'absolute',
+    left: 14,
+    zIndex: 20,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    maxWidth: width * 0.6,
+  },
+  bannerPillText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  snapsWrap: {
+    position: 'absolute',
+    right: 14,
+    zIndex: 30,
+  },
+  topScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 160,
+    zIndex: 15, // abaixo do banner (zIndex 20) e do snapsWrap (zIndex 30)
+  },
+  progressTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    zIndex: 25,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#ff286a',
   },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { color: '#fff', fontSize: 22, fontFamily: 'Inter_700Bold', textAlign: 'center' },
@@ -461,8 +362,4 @@ const styles = StyleSheet.create({
   reviewBtn: { borderRadius: 14, overflow: 'hidden', marginTop: 8, width: '80%' },
   reviewBtnGrad: { paddingVertical: 16, alignItems: 'center', borderWidth: 0.5, borderColor: '#333', borderRadius: 14 },
   reviewBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_500Medium' },
-  progressContainer: { position: 'absolute', bottom: 30, left: 20, right: 20, alignItems: 'center' },
-  progressBar: { width: '100%', height: 3, backgroundColor: '#222', borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#ff286a', borderRadius: 2 },
-  progressText: { color: '#888', fontSize: 12, marginTop: 8, fontFamily: 'Inter_400Regular' },
 });

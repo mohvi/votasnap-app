@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { get, ref, update } from 'firebase/database';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Image,
@@ -15,17 +16,23 @@ import {
   View,
 } from 'react-native';
 import provinces from '../../hooks/useProvinces';
-import { auth, db } from '../../services/firebase';
+import { auth, db, storage } from '../../services/firebase';
+
+// Janela mínima de existência da conta para poder votar em desafios
+// pagos/patrocinados. Desafios gratuitos continuam liberados sempre.
+// Mantido aqui para ser gravado no perfil e reutilizado no ecrã de votação.
+const MIN_ACCOUNT_AGE_DAYS_FOR_PAID_VOTES = 7;
 
 export default function SetupProfileScreen() {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<string | null>(null); // URI local (preview)
   const [province, setProvince] = useState('');
   const [city, setCity] = useState('');
   const [isOver13, setIsOver13] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'checking' | 'available' | 'taken' | 'invalid' | null>(null);
   const [existingUsernames, setExistingUsernames] = useState<string[]>([]);
@@ -41,7 +48,7 @@ export default function SetupProfileScreen() {
       try {
         const usersRef = ref(db, 'users');
         const snapshot = await get(usersRef);
-        
+
         if (snapshot.exists()) {
           const usersData = snapshot.val();
           const usernames = Object.values(usersData)
@@ -53,7 +60,7 @@ export default function SetupProfileScreen() {
         console.error('Error fetching usernames:', error);
       }
     };
-    
+
     fetchExistingUsernames();
   }, []);
 
@@ -72,28 +79,28 @@ export default function SetupProfileScreen() {
 
   const checkUsername = async () => {
     const usernameTrimmed = username.trim();
-    
+
     if (!usernameTrimmed) {
       setUsernameStatus('invalid');
       setError('Username é obrigatório');
       return;
     }
-    
+
     if (!isValidUsername(usernameTrimmed)) {
       setUsernameStatus('invalid');
       setError('Username: 3-20 caracteres, só letras minúsculas, números, _ e .');
       return;
     }
-    
+
     setUsernameStatus('checking');
     setError('');
-    
+
     try {
       const normalizedUsername = normalizeUsername(usernameTrimmed);
       const normalizedExisting = existingUsernames.map(u => normalizeUsername(u));
-      
+
       const isAvailable = !normalizedExisting.includes(normalizedUsername);
-      
+
       setUsernameStatus(isAvailable ? 'available' : 'taken');
       if (!isAvailable) {
         setError('Este username já está em uso');
@@ -115,66 +122,149 @@ export default function SetupProfileScreen() {
       quality: 0.7,
     });
     if (!result.canceled) {
-      setAvatar(result.assets[0].uri);
+      setAvatar(result.assets[0].uri); // só preview local por enquanto
+    }
+  };
+
+  // Converte a URI local para Blob via XHR — o fetch().blob() falha em alguns
+  // aparelhos Android/Expo Go, XHR é a abordagem que já validámos no VotaSnap.
+  const uriToBlob = (uri: string): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = () => resolve(xhr.response);
+      xhr.onerror = () => reject(new Error('Falha ao ler o ficheiro da imagem'));
+      xhr.responseType = 'blob';
+      xhr.open('GET', uri, true);
+      xhr.send(null);
+    });
+  };
+
+  // Sobe o avatar para o Firebase Storage e devolve a URL pública de download.
+  const uploadAvatarToStorage = async (uid: string, uri: string): Promise<string> => {
+    const blob = await uriToBlob(uri);
+    const fileRef = storageRef(storage, `avatars/${uid}.jpg`);
+    await uploadBytes(fileRef, blob, { contentType: 'image/jpeg' });
+    // liberta a memória do blob depois do upload (recomendado em RN)
+    // @ts-ignore
+    if (typeof blob.close === 'function') blob.close();
+    return getDownloadURL(fileRef);
+  };
+
+  // ── Anti-fraude: deteção de partilha de aparelho (sem fingerprint) ──
+  // O Expo push token é único por instalação do app num aparelho.
+  // Se já existir outra conta com o mesmo pushToken, é um forte indício
+  // de que duas contas estão a ser usadas no mesmo telemóvel — não bloqueia
+  // o registo (pode ser família/casal a partilhar), só sinaliza para revisão.
+  const checkSharedDevice = async (currentUid: string): Promise<string[]> => {
+    try {
+      const myPushToken = (await import('expo-notifications'))
+        .default?.getExpoPushTokenAsync?.()
+        .then((t: any) => t?.data)
+        .catch(() => null);
+
+      const tokenSnapshot = await get(ref(db, 'users'));
+      if (!tokenSnapshot.exists()) return [];
+
+      const usersData = tokenSnapshot.val();
+      const myToken = await myPushToken;
+      if (!myToken) return [];
+
+      const sharingUids = Object.entries(usersData)
+        .filter(([uid, u]: [string, any]) => uid !== currentUid && u.pushToken === myToken)
+        .map(([uid]) => uid);
+
+      return sharingUids;
+    } catch (e) {
+      console.error('Error checking shared device:', e);
+      return []; // falha na checagem nunca deve bloquear o registo
     }
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { 
-      setError('Introduz o teu nome'); 
-      return; 
+    if (!name.trim()) {
+      setError('Introduz o teu nome');
+      return;
     }
-    
+
     if (usernameStatus !== 'available') {
       setError('Por favor, verifica se o username está disponível');
       return;
     }
-    
+
     if (!province) {
       setError('Selecciona uma província');
       return;
     }
-    
+
     if (!city) {
       setError('Selecciona um distrito/cidade');
       return;
     }
-    
+
     if (!isOver13) {
       setShowAgeModal(true);
       return;
     }
-    
+
     setError('');
     setLoading(true);
-    
+
     try {
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error('Sessão expirada — faz login novamente');
-      
+
       // Verificar username novamente antes de salvar
       const normalizedUsername = normalizeUsername(username);
       const normalizedExisting = existingUsernames.map(u => normalizeUsername(u));
-      
+
       if (normalizedExisting.includes(normalizedUsername)) {
         throw new Error('Este username já foi escolhido por outro utilizador');
       }
-      
+
+      // Sobe o avatar para o Storage (se o utilizador escolheu um) e obtém a URL pública.
+      // Só faz upload se for uma URI local — evita re-upload se já for uma URL http(s)
+      // (ex: utilizador voltou a este ecrã sem trocar a imagem).
+      let avatarUrl: string | null = null;
+      if (avatar) {
+        if (avatar.startsWith('http')) {
+          avatarUrl = avatar;
+        } else {
+          setUploadingAvatar(true);
+          try {
+            avatarUrl = await uploadAvatarToStorage(uid, avatar);
+          } finally {
+            setUploadingAvatar(false);
+          }
+        }
+      }
+
+      // Verificação de partilha de aparelho — não bloqueia, só regista
+      const sharingWithUids = await checkSharedDevice(uid);
+
       await update(ref(db, `users/${uid}`), {
         name: name.trim(),
         username: normalizedUsername,
         bio: bio.trim(),
-        avatar: avatar || null,
+        avatar: avatarUrl,
         province: province,
         city: city,
         isOver13: true,
         profileComplete: true,
         updatedAt: Date.now(),
+        // ── Campos de anti-fraude ──
+        // accountCreatedAt já existe como createdAt no registo (login),
+        // aqui só garantimos minAccountAgeForPaidVotes documentado no perfil
+        // para o ecrã de votação não precisar de recalcular a regra.
+        minAccountAgeDaysForPaidVotes: MIN_ACCOUNT_AGE_DAYS_FOR_PAID_VOTES,
+        riskFlags: {
+          sharedPushToken: sharingWithUids.length > 0,
+          sharedWithUids: sharingWithUids.length > 0 ? sharingWithUids : null,
+        },
       });
-      
+
       router.replace('/(tabs)');
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'Não foi possível guardar o perfil. Tenta novamente.');
     } finally {
       setLoading(false);
     }
@@ -209,6 +299,8 @@ export default function SetupProfileScreen() {
     }
   };
 
+  const isSaving = loading || uploadingAvatar;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -233,6 +325,7 @@ export default function SetupProfileScreen() {
           style={styles.avatarWrap}
           onPress={handlePickAvatar}
           activeOpacity={0.8}
+          disabled={isSaving}
         >
           {avatar ? (
             <Image source={{ uri: avatar }} style={styles.avatar} />
@@ -246,11 +339,20 @@ export default function SetupProfileScreen() {
               <Text style={styles.avatarIcon}>📷</Text>
             </LinearGradient>
           )}
-          <View style={styles.avatarBadge}>
-            <Text style={styles.avatarBadgeText}>+</Text>
-          </View>
+
+          {uploadingAvatar ? (
+            <View style={styles.avatarUploadingOverlay}>
+              <ActivityIndicator color="#fff" size="small" />
+            </View>
+          ) : (
+            <View style={styles.avatarBadge}>
+              <Text style={styles.avatarBadgeText}>+</Text>
+            </View>
+          )}
         </TouchableOpacity>
-        <Text style={styles.avatarHint}>Toca para adicionar foto</Text>
+        <Text style={styles.avatarHint}>
+          {uploadingAvatar ? 'A carregar imagem...' : 'Toca para adicionar foto'}
+        </Text>
 
         {/* Formulário */}
         <View style={styles.form}>
@@ -271,7 +373,7 @@ export default function SetupProfileScreen() {
               placeholderTextColor="#555"
               value={name}
               onChangeText={setName}
-              editable={!loading}
+              editable={!isSaving}
               maxLength={50}
             />
           </View>
@@ -295,7 +397,7 @@ export default function SetupProfileScreen() {
                   setError('');
                 }}
                 onBlur={checkUsername}
-                editable={!loading}
+                editable={!isSaving}
                 maxLength={20}
                 autoCapitalize="none"
               />
@@ -330,6 +432,7 @@ export default function SetupProfileScreen() {
                 onValueChange={(itemValue) => setProvince(itemValue)}
                 style={styles.picker}
                 dropdownIconColor="#ff286a"
+                enabled={!isSaving}
               >
                 <Picker.Item label="Selecciona uma província..." value="" />
                 {provinces.map((prov) => (
@@ -347,11 +450,11 @@ export default function SetupProfileScreen() {
                 onValueChange={(itemValue) => setCity(itemValue)}
                 style={styles.picker}
                 dropdownIconColor="#ff286a"
-                enabled={!!province}
+                enabled={!!province && !isSaving}
               >
-                <Picker.Item 
-                  label={province ? "Selecciona um distrito/cidade..." : "Primeiro selecciona uma província"} 
-                  value="" 
+                <Picker.Item
+                  label={province ? "Selecciona um distrito/cidade..." : "Primeiro selecciona uma província"}
+                  value=""
                 />
                 {cities.map((cityName) => (
                   <Picker.Item key={cityName} label={cityName} value={cityName} />
@@ -369,7 +472,7 @@ export default function SetupProfileScreen() {
               placeholderTextColor="#555"
               value={bio}
               onChangeText={setBio}
-              editable={!loading}
+              editable={!isSaving}
               maxLength={120}
               multiline
               numberOfLines={3}
@@ -381,11 +484,11 @@ export default function SetupProfileScreen() {
           {/* Botão */}
           <TouchableOpacity
             onPress={handleSave}
-            disabled={loading || !name.trim() || usernameStatus !== 'available' || !province || !city}
+            disabled={isSaving || !name.trim() || usernameStatus !== 'available' || !province || !city}
             activeOpacity={0.85}
             style={[
               styles.btnWrap,
-              (loading || !name.trim() || usernameStatus !== 'available' || !province || !city) && styles.btnDisabled,
+              (isSaving || !name.trim() || usernameStatus !== 'available' || !province || !city) && styles.btnDisabled,
             ]}
           >
             <LinearGradient
@@ -394,7 +497,7 @@ export default function SetupProfileScreen() {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              {loading
+              {isSaving
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={styles.btnText}>Entrar no VotaSnap 🚀</Text>
               }
@@ -523,6 +626,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
     lineHeight: 22,
+  },
+  avatarUploadingOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 50,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarHint: {
     textAlign: 'center',

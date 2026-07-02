@@ -16,6 +16,7 @@ export interface FeedEntry {
   caption: string;
   votes: number;
   createdAt: number;
+  isWinner?: boolean; 
 }
 
 export function useFeedEntries() {
@@ -34,6 +35,9 @@ export function useFeedEntries() {
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
   const [votesLoaded, setVotesLoaded] = useState(false);
+
+  // Mapa: challengeId -> entryId em que o utilizador atual votou (fonte única de verdade)
+  const [userVotes, setUserVotes] = useState<Record<string, string>>({});
 
   const shuffle = <T,>(arr: T[]): T[] => {
     const copy = [...arr];
@@ -98,7 +102,8 @@ export function useFeedEntries() {
     return () => unsubscribe();
   }, []);
 
-  // Nó "votes" inteiro — usado só para saber em que o utilizador atual já votou
+  // Nó "votes" inteiro — usado para saber em que o utilizador atual já votou,
+  // e também para bloquear votos duplicados no mesmo desafio
   useEffect(() => {
     const votesRef = ref(db, 'votes');
     const unsubscribe = onValue(
@@ -115,6 +120,25 @@ export function useFeedEntries() {
     return () => unsubscribe();
   }, []);
 
+  // --- Recalcular userVotes sempre que o nó votes muda ---
+
+  useEffect(() => {
+    if (!votesLoaded) return;
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) {
+      setUserVotes({});
+      return;
+    }
+    const votes: Record<string, string> = {};
+    for (const [challengeId, challengeVotes] of Object.entries<any>(votesByChallenge)) {
+      const myVote = challengeVotes?.[currentUid];
+      if (myVote?.entryId) {
+        votes[challengeId] = myVote.entryId;
+      }
+    }
+    setUserVotes(votes);
+  }, [votesByChallenge, votesLoaded]);
+
   // --- Recalcular fresh/all sempre que algum dos nós muda ---
 
   useEffect(() => {
@@ -125,7 +149,6 @@ export function useFeedEntries() {
     const currentUid = auth.currentUser?.uid;
     const fresh: FeedEntry[] = [];
     const all: FeedEntry[] = [];
-    const entryMap = new Map<string, FeedEntry>();
 
     for (const [challengeId, challenge] of Object.entries<any>(challenges)) {
       if (challenge?.status !== 'active') continue;
@@ -157,7 +180,6 @@ export function useFeedEntries() {
           createdAt: entry.createdAt || Date.now(),
         };
 
-        entryMap.set(entryId, feedEntry);
         all.push(feedEntry);
 
         if (entry.userId !== currentUid && !alreadyVoted) {
@@ -182,7 +204,7 @@ export function useFeedEntries() {
       shuffledOnceRef.current = true;
     } else {
       // Atualizações seguintes: mantém a ordem fixada, só atualiza os dados dos cards
-      // (ex: contagem de votos) e remove/adiciona conforme necessário no fim da lista.
+      // (ex: contagem de votos) e adiciona novas entradas no fim da lista.
       const reorder = (ids: string[], pool: FeedEntry[]) => {
         const poolMap = new Map(pool.map(e => [e.id, e]));
         const ordered: FeedEntry[] = [];
@@ -195,7 +217,6 @@ export function useFeedEntries() {
             seen.add(id);
           }
         }
-        // Novas entradas que ainda não estavam na ordem fixada vão para o fim
         for (const e of pool) {
           if (!seen.has(e.id)) ordered.push(e);
         }
@@ -218,13 +239,10 @@ export function useFeedEntries() {
     setRefreshing(false);
   }, [challenges, users, entriesByChallenge, votesByChallenge, challengesLoaded, usersLoaded, entriesLoaded, votesLoaded]);
 
-  // refresh() mantido por compatibilidade (ex: pull-to-refresh), mas agora é só
-  // um indicador visual — os dados já chegam sozinhos via onValue.
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    // pequena espera para o spinner não desaparecer instantaneamente
     setTimeout(() => setRefreshing(false), 400);
   }, []);
 
-  return { freshEntries, allEntries, loading, refreshing, refresh };
+  return { freshEntries, allEntries, loading, refreshing, refresh, userVotes };
 }

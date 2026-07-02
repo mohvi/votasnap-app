@@ -57,7 +57,8 @@ export default function SplashScreenPage() {
       <Image
         source={logo}
         style={styles.logoEmoji}
-      />         </LinearGradient>
+      />
+      </LinearGradient>
         <Text style={styles.logoText}>VotaSnap</Text>
         <Text style={styles.logoSub}>Postar | Ganhar | Bazar</Text>
       </Animated.View>
