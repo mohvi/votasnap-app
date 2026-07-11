@@ -1,16 +1,19 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { signOut } from 'firebase/auth';
-import { get, onValue, ref } from 'firebase/database';
+import { deleteUser, signOut } from 'firebase/auth';
+import { get, onValue, ref, remove, runTransaction } from 'firebase/database';
+import { deleteObject, ref as storageRef } from 'firebase/storage';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert,
   Dimensions,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,9 +22,10 @@ import FeedCard from '../../components/feed/FeedCard';
 import { useAuth } from '../../hooks/useAuth';
 import { FeedEntry } from '../../hooks/useFeedEntries';
 import { useSnaps } from '../../hooks/useSnaps';
-import { auth, db } from '../../services/firebase';
+import { auth, db, storage } from '../../services/firebase';
 
 const { width, height } = Dimensions.get('window');
+const DELETE_CONFIRM_WORD = 'ELIMINAR';
 
 interface UserProfile {
   uid: string;
@@ -33,7 +37,6 @@ interface UserProfile {
   createdAt: number;
 }
 
-// Compatível com FeedEntry para poder ser aberto no FeedCard/viewer
 interface UserEntry extends FeedEntry {
   isWinner?: boolean;
 }
@@ -44,6 +47,12 @@ export default function ProfileScreen() {
   const [totalVotesGiven, setTotalVotesGiven] = useState(0);
   const [loading, setLoading] = useState(true);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteStep, setDeleteStep] = useState('');
+
   const { isLoggedIn } = useAuth();
   const uid = auth.currentUser?.uid;
   const insets = useSafeAreaInsets();
@@ -60,7 +69,7 @@ export default function ProfileScreen() {
     return () => unsub();
   }, [uid]);
 
-  // Carregar entradas do utilizador — já no formato compatível com FeedCard
+  // Carregar entradas do utilizador
   useEffect(() => {
     if (!uid) return;
     const loadEntries = async () => {
@@ -80,8 +89,6 @@ export default function ProfileScreen() {
           if (!entriesSnap.exists()) return;
           const allChallengeEntries = entriesSnap.val();
 
-          // Desafio "terminado" = qualquer status diferente de "active"
-          // (mesmo critério já usado no Feed/Explore)
           const isFinished = challenge?.status !== 'active';
           let maxVotes = -1;
           if (isFinished) {
@@ -153,6 +160,105 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  // ── Eliminação de conta ──
+  // Apaga, por esta ordem: ficheiros no Storage (avatar + media das entries),
+  // votos dados (com decremento correcto dos contadores), entries e perfil na
+  // Realtime Database, e por fim a conta de autenticação.
+  const handleDeleteAccount = async () => {
+    if (!uid || deleteConfirmText.trim().toUpperCase() !== DELETE_CONFIRM_WORD) return;
+
+    setDeleting(true);
+
+    try {
+      // 1. Apagar votos dados por este utilizador (com decremento dos contadores)
+      setDeleteStep('A remover votos...');
+      const challengesSnap = await get(ref(db, 'challenges'));
+      if (challengesSnap.exists()) {
+        const challengeIds = Object.keys(challengesSnap.val());
+        await Promise.all(
+          challengeIds.map(async challengeId => {
+            const voteSnap = await get(ref(db, `votes/${challengeId}/${uid}`));
+            if (!voteSnap.exists()) return;
+            const votedEntryId = voteSnap.val()?.entryId;
+
+            await remove(ref(db, `votes/${challengeId}/${uid}`));
+
+            if (votedEntryId) {
+              await runTransaction(
+                ref(db, `entries/${challengeId}/${votedEntryId}/votes`),
+                current => Math.max((current || 0) - 1, 0)
+              );
+              await runTransaction(
+                ref(db, `challenges/${challengeId}/totalVotes`),
+                current => Math.max((current || 0) - 1, 0)
+              );
+            }
+          })
+        );
+      }
+
+      // 2. Apagar as próprias entries (ficheiros no Storage + nó na Database)
+      setDeleteStep('A remover as tuas participações...');
+      for (const entry of entries) {
+        try {
+          const mediaRef = storageRef(storage, entry.mediaUrl);
+          await deleteObject(mediaRef);
+        } catch (e) {
+          // ficheiro pode já não existir — não bloqueia o resto da eliminação
+          console.warn('Não foi possível apagar ficheiro de media:', e);
+        }
+        await remove(ref(db, `entries/${entry.challengeId}/${entry.id}`));
+      }
+
+      // 3. Apagar avatar no Storage (se existir)
+      if (profile?.avatar) {
+        try {
+          const avatarRef = storageRef(storage, profile.avatar);
+          await deleteObject(avatarRef);
+        } catch (e) {
+          console.warn('Não foi possível apagar avatar:', e);
+        }
+      }
+
+      // 4. Apagar o nó de perfil
+      setDeleteStep('A remover o teu perfil...');
+      await remove(ref(db, `users/${uid}`));
+
+      // 5. Apagar a conta de autenticação por último
+      setDeleteStep('A finalizar...');
+      if (auth.currentUser) {
+        await deleteUser(auth.currentUser);
+      }
+
+      router.replace('/auth/login');
+    } catch (e: any) {
+      console.error('Erro ao eliminar conta:', e);
+
+      if (e?.code === 'auth/requires-recent-login') {
+        Alert.alert(
+          'Sessão expirada',
+          'Por segurança, precisas de sair e entrar novamente antes de eliminar a conta. Os teus dados de participações e votos já foram removidos — falta apenas a conta de acesso.',
+          [
+            {
+              text: 'Sair agora',
+              onPress: async () => {
+                await signOut(auth);
+                router.replace('/auth/login');
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Erro', 'Não foi possível concluir a eliminação. Tenta novamente ou contacta o suporte em geral@votasnap.com.');
+      }
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+      setDeleteConfirmText('');
+      setDeleteStep('');
+    }
   };
 
   const totalVotesReceived = entries.reduce((sum, e) => sum + e.votes, 0);
@@ -278,7 +384,7 @@ export default function ProfileScreen() {
 
         {/* Badges */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Emblemas</Text>
+          <Text style={styles.sectionTitle}>Badges</Text>
           <View style={styles.badgesRow}>
             {entries.length >= 1 && (
               <View style={styles.badge}>
@@ -312,7 +418,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Entradas — agora abrem em tela cheia ao tocar */}
+        {/* Entradas */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             As minhas entradas ({entries.length})
@@ -333,7 +439,6 @@ export default function ProfileScreen() {
                 onPress={() => openViewer(i)}
                 activeOpacity={0.8}
               >
-                {/* Miniatura */}
                 {entry.mediaType === 'video' ? (
                   <View style={[styles.entryThumb, styles.entryThumbVideo]}>
                     <Text style={styles.entryThumbVideoIcon}>▶️</Text>
@@ -346,7 +451,6 @@ export default function ProfileScreen() {
                   />
                 )}
 
-                {/* Info */}
                 <View style={styles.entryInfo}>
                   <Text style={styles.entryChallenge} numberOfLines={1}>
                     {entry.challengeTitle}
@@ -375,9 +479,24 @@ export default function ProfileScreen() {
             ))
           )}
         </View>
+
+        {/* Zona de risco */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Zona de risco</Text>
+          <TouchableOpacity
+            style={styles.deleteAccountBtn}
+            onPress={() => setShowDeleteModal(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.deleteAccountBtnText}>🗑️ Eliminar a minha conta</Text>
+          </TouchableOpacity>
+          <Text style={styles.deleteAccountHint}>
+            Remove permanentemente o teu perfil, participações, votos e avatar. Esta ação não pode ser revertida.
+          </Text>
+        </View>
       </ScrollView>
 
-      {/* Viewer em tela cheia — abre ao tocar num post, com swipe entre os próprios posts */}
+      {/* Viewer em tela cheia */}
       {viewerIndex !== null && (
         <View style={styles.viewerOverlay}>
           <FlatList
@@ -414,6 +533,70 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Modal de confirmação de eliminação de conta */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !deleting && setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {deleting ? (
+              <View style={styles.deletingWrap}>
+                <ActivityIndicator color="#ff286a" size="large" />
+                <Text style={styles.deletingText}>{deleteStep || 'A eliminar...'}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalIcon}>⚠️</Text>
+                  <Text style={styles.modalTitle}>Eliminar conta</Text>
+                </View>
+                <Text style={styles.modalText}>
+                  Isto vai apagar permanentemente o teu perfil, participações, votos e avatar.
+                  Não é possível recuperar depois. Para confirmar, escreve{' '}
+                  <Text style={{ color: '#ff286a', fontFamily: 'Inter_700Bold' }}>{DELETE_CONFIRM_WORD}</Text> abaixo.
+                </Text>
+
+                <TextInput
+                  style={styles.confirmInput}
+                  placeholder={DELETE_CONFIRM_WORD}
+                  placeholderTextColor="#444"
+                  value={deleteConfirmText}
+                  onChangeText={setDeleteConfirmText}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.modalButtonCancel]}
+                    onPress={() => {
+                      setShowDeleteModal(false);
+                      setDeleteConfirmText('');
+                    }}
+                  >
+                    <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton,
+                      styles.modalButtonDelete,
+                      deleteConfirmText.trim().toUpperCase() !== DELETE_CONFIRM_WORD && styles.modalButtonDisabled,
+                    ]}
+                    onPress={handleDeleteAccount}
+                    disabled={deleteConfirmText.trim().toUpperCase() !== DELETE_CONFIRM_WORD}
+                  >
+                    <Text style={styles.modalButtonTextDelete}>Eliminar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -582,6 +765,29 @@ const styles = StyleSheet.create({
   loginBtn: { paddingVertical: 16, alignItems: 'center' },
   loginBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
 
+  // Zona de risco
+  deleteAccountBtn: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(239,68,68,0.4)',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteAccountBtnText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  deleteAccountHint: {
+    color: '#555',
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 16,
+  },
+
   viewerOverlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
@@ -605,5 +811,97 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontFamily: 'Inter_600SemiBold',
+  },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 0.5,
+    borderColor: '#2a2a2a',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIcon: {
+    fontSize: 40,
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 19,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+  },
+  modalText: {
+    fontSize: 13.5,
+    fontFamily: 'Inter_400Regular',
+    color: '#aaa',
+    textAlign: 'center',
+    marginBottom: 18,
+    lineHeight: 20,
+  },
+  confirmInput: {
+    backgroundColor: '#0d0d0d',
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: '#333',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#fff',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    textAlign: 'center',
+    letterSpacing: 1,
+    marginBottom: 18,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#2a2a2a',
+  },
+  modalButtonDelete: {
+    backgroundColor: '#ef4444',
+  },
+  modalButtonDisabled: {
+    opacity: 0.35,
+  },
+  modalButtonTextCancel: {
+    color: '#aaa',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  modalButtonTextDelete: {
+    color: '#fff',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  deletingWrap: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 16,
+  },
+  deletingText: {
+    color: '#aaa',
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
   },
 });
