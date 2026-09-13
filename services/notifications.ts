@@ -1,4 +1,4 @@
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import { get, ref, update } from 'firebase/database';
 import { Platform } from 'react-native';
@@ -14,6 +14,7 @@ const isNotificationsAvailable = () => {
 };
 
 export async function registerForPushNotifications(): Promise<string | null> {
+  if (Platform.OS === 'web' || Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return null;
   if (!isNotificationsAvailable()) {
     console.log('[PUSH] expo-notifications não disponível neste ambiente');
     return null;

@@ -1,8 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { deleteUser, signOut } from 'firebase/auth';
-import { get, onValue, ref, remove, runTransaction } from 'firebase/database';
-import { deleteObject, ref as storageRef } from 'firebase/storage';
+import { signOut } from 'firebase/auth';
+import { get, onValue, ref } from 'firebase/database';
+import { authenticatedRequest } from '../../services/api';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert,
@@ -22,7 +22,7 @@ import FeedCard from '../../components/feed/FeedCard';
 import { useAuth } from '../../hooks/useAuth';
 import { FeedEntry } from '../../hooks/useFeedEntries';
 import { useSnaps } from '../../hooks/useSnaps';
-import { auth, db, storage } from '../../services/firebase';
+import { auth, db } from '../../services/firebase';
 
 const { width, height } = Dimensions.get('window');
 const DELETE_CONFIRM_WORD = 'ELIMINAR';
@@ -162,10 +162,7 @@ export default function ProfileScreen() {
     );
   };
 
-  // ── Eliminação de conta ──
-  // Apaga, por esta ordem: ficheiros no Storage (avatar + media das entries),
-  // votos dados (com decremento correcto dos contadores), entries e perfil na
-  // Realtime Database, e por fim a conta de autenticação.
+  // A API valida a sessão e remove os dados e ficheiros da conta.
   const handleDeleteAccount = async () => {
     if (!uid || deleteConfirmText.trim().toUpperCase() !== DELETE_CONFIRM_WORD) return;
 
@@ -173,86 +170,22 @@ export default function ProfileScreen() {
 
     try {
       // 1. Apagar votos dados por este utilizador (com decremento dos contadores)
-      setDeleteStep('A remover votos...');
-      const challengesSnap = await get(ref(db, 'challenges'));
-      if (challengesSnap.exists()) {
-        const challengeIds = Object.keys(challengesSnap.val());
-        await Promise.all(
-          challengeIds.map(async challengeId => {
-            const voteSnap = await get(ref(db, `votes/${challengeId}/${uid}`));
-            if (!voteSnap.exists()) return;
-            const votedEntryId = voteSnap.val()?.entryId;
-
-            await remove(ref(db, `votes/${challengeId}/${uid}`));
-
-            if (votedEntryId) {
-              await runTransaction(
-                ref(db, `entries/${challengeId}/${votedEntryId}/votes`),
-                current => Math.max((current || 0) - 1, 0)
-              );
-              await runTransaction(
-                ref(db, `challenges/${challengeId}/totalVotes`),
-                current => Math.max((current || 0) - 1, 0)
-              );
-            }
-          })
-        );
+      const user = auth.currentUser;
+      if (!user) throw new Error('Sessão expirada. Volta a entrar.');
+      const token = await user.getIdTokenResult(true);
+      const authenticatedAt = Date.parse(token.authTime);
+      if (!Number.isFinite(authenticatedAt) || Date.now() - authenticatedAt > 4 * 60 * 1000) {
+        Alert.alert('Confirma a tua identidade', 'Sai e volta a entrar antes de eliminar a conta. Nenhum dado foi removido.');
+        return;
       }
-
-      // 2. Apagar as próprias entries (ficheiros no Storage + nó na Database)
-      setDeleteStep('A remover as tuas participações...');
-      for (const entry of entries) {
-        try {
-          const mediaRef = storageRef(storage, entry.mediaUrl);
-          await deleteObject(mediaRef);
-        } catch (e) {
-          // ficheiro pode já não existir — não bloqueia o resto da eliminação
-          console.warn('Não foi possível apagar ficheiro de media:', e);
-        }
-        await remove(ref(db, `entries/${entry.challengeId}/${entry.id}`));
-      }
-
-      // 3. Apagar avatar no Storage (se existir)
-      if (profile?.avatar) {
-        try {
-          const avatarRef = storageRef(storage, profile.avatar);
-          await deleteObject(avatarRef);
-        } catch (e) {
-          console.warn('Não foi possível apagar avatar:', e);
-        }
-      }
-
-      // 4. Apagar o nó de perfil
-      setDeleteStep('A remover o teu perfil...');
-      await remove(ref(db, `users/${uid}`));
-
-      // 5. Apagar a conta de autenticação por último
-      setDeleteStep('A finalizar...');
-      if (auth.currentUser) {
-        await deleteUser(auth.currentUser);
-      }
-
+      setDeleteStep('A eliminar a conta e os teus ficheiros...');
+      await authenticatedRequest('/api/account/delete', {});
+      await signOut(auth);
       router.replace('/auth/login');
     } catch (e: any) {
       console.error('Erro ao eliminar conta:', e);
 
-      if (e?.code === 'auth/requires-recent-login') {
-        Alert.alert(
-          'Sessão expirada',
-          'Por segurança, precisas de sair e entrar novamente antes de eliminar a conta. Os teus dados de participações e votos já foram removidos — falta apenas a conta de acesso.',
-          [
-            {
-              text: 'Sair agora',
-              onPress: async () => {
-                await signOut(auth);
-                router.replace('/auth/login');
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Erro', 'Não foi possível concluir a eliminação. Tenta novamente ou contacta o suporte em geral@votasnap.com.');
-      }
+      Alert.alert('Erro', e.message || 'Não foi possível concluir a eliminação. Contacta geral@votasnap.com.');
     } finally {
       setDeleting(false);
       setShowDeleteModal(false);
@@ -330,6 +263,10 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        <TouchableOpacity onPress={() => router.push('/blocked-users')} style={{ paddingVertical: 16 }}>
+          <Text style={{ color: '#ff286a' }}>Utilizadores bloqueados</Text>
+        </TouchableOpacity>
 
         {/* Avatar + info */}
         <View style={styles.profileTop}>

@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { FeedEntry } from '../../hooks/useFeedEntries';
+import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
 import { sharePost } from '../../services/share';
 
@@ -29,14 +30,14 @@ interface Props {
   onLike: () => void;
 }
 
-function VideoPlayer({
+export function VideoPlayer({
   uri,
-  isActive,
+  isActive = true,
   onDoubleTap,
 }: {
   uri: string;
-  isActive: boolean;
-  onDoubleTap: () => void;
+  isActive?: boolean;
+  onDoubleTap?: () => void;
 }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -71,7 +72,7 @@ function VideoPlayer({
         clearTimeout(singleTapTimeout.current);
         singleTapTimeout.current = null;
       }
-      onDoubleTap();
+      onDoubleTap?.();
       lastTap.current = 0;
       return;
     }
@@ -110,6 +111,7 @@ export default function FeedCard({
   isLiking,
   onLike,
 }: Props) {
+  const { blocked, block } = useBlockedUsers();
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [burstVisible, setBurstVisible] = useState(false);
   const burstScale = useRef(new Animated.Value(0)).current;
@@ -144,6 +146,17 @@ export default function FeedCard({
     onLike();
   };
 
+  const handleActions = () => {
+    Alert.alert('Gerir conteúdo', 'Escolhe uma opção.', [
+      { text: 'Denunciar conteúdo/utilizador', onPress: handleReport },
+      { text: 'Bloquear utilizador', onPress: async () => {
+        try { await block(entry.userId); }
+        catch (error) { Alert.alert('Não foi possível bloquear', error instanceof Error ? error.message : 'Tenta novamente.'); }
+      } },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
   const handleReport = () => {
     Alert.alert(
       'Denunciar conteúdo',
@@ -151,7 +164,6 @@ export default function FeedCard({
       [
         { text: 'Conteúdo inapropriado', onPress: () => submitReport('conteudo_inapropriado') },
         { text: 'Spam', onPress: () => submitReport('spam') },
-        { text: 'Não segue o tema do desafio', onPress: () => submitReport('fora_do_tema') },
         { text: 'Cancelar', style: 'cancel' },
       ]
     );
@@ -182,6 +194,8 @@ export default function FeedCard({
       console.error('Erro ao denunciar:', e);
     }
   };
+
+  if (blocked.includes(entry.userId)) return null;
 
   return (
     <View style={styles.card}>
@@ -250,7 +264,7 @@ export default function FeedCard({
           <Text style={styles.actionCount}>Partilhar</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.8} onPress={handleReport}>
+        <TouchableOpacity accessibilityLabel="Denunciar ou bloquear utilizador" style={styles.actionBtn} activeOpacity={0.8} onPress={handleActions}>
           <Text style={styles.actionIcon}>⚠️</Text>
         </TouchableOpacity>
       </View>

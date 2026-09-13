@@ -6,7 +6,10 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://us-central1-votasnap.cloudfunctions.net/votasnapApi"
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -20,7 +23,8 @@
         "EXPO_PUBLIC_FIREBASE_APP_ID": "1:1086936699830:web:805daa9e03c086dd006717",
         "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-SCBC0GCVH2",
         "EXPO_PUBLIC_API_URL_DEV": "https://us-central1-votasnap.cloudfunctions.net",
-        "EXPO_PUBLIC_API_URL_PROD": "https://us-central1-votasnap.cloudfunctions.net"
+        "EXPO_PUBLIC_API_URL_PROD": "https://us-central1-votasnap.cloudfunctions.net",
+        "EXPO_PUBLIC_BACKEND_URL": "https://us-central1-votasnap.cloudfunctions.net/votasnapApi"
       }
     },
     "production": {
@@ -35,7 +39,8 @@
         "EXPO_PUBLIC_FIREBASE_APP_ID": "1:1086936699830:web:805daa9e03c086dd006717",
         "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-SCBC0GCVH2",
         "EXPO_PUBLIC_API_URL_DEV": "https://us-central1-votasnap.cloudfunctions.net",
-        "EXPO_PUBLIC_API_URL_PROD": "https://us-central1-votasnap.cloudfunctions.net"
+        "EXPO_PUBLIC_API_URL_PROD": "https://us-central1-votasnap.cloudfunctions.net",
+        "EXPO_PUBLIC_BACKEND_URL": "https://us-central1-votasnap.cloudfunctions.net/votasnapApi"
       }
     }
   },

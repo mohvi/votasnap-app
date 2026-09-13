@@ -1,28 +1,10 @@
 import { signInWithCustomToken } from 'firebase/auth';
-import { get, ref, set, update } from 'firebase/database';
-import { auth, db } from './firebase';
+import { authenticatedRequest } from './api';
+import { auth } from './firebase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL_PROD || 'https://us-central1-votasnap.cloudfunctions.net';
 
 
-async function saveOrUpdateUser(uid: string, phone: string) {
-  const userRef = ref(db, `users/${uid}`);
-  const snap = await get(userRef);
-  if (!snap.exists()) {
-    await set(userRef, {
-      uid, phone,
-      createdAt: Date.now(),
-      lastLogin: Date.now(),
-      profileComplete: false,
-    });
-    return { isNewUser: true, profileComplete: false };
-  }
-  await update(userRef, { lastLogin: Date.now() });
-  return {
-    isNewUser: false,
-    profileComplete: snap.val()?.profileComplete || false,
-  };
-}
 
 // ─── PRODUÇÃO ──────────────────────────────────────────────────────────────
 
@@ -51,7 +33,7 @@ export async function verifyCode(phone: string, code: string) {
     );
   }
   await signInWithCustomToken(auth, data.token);
-  return saveOrUpdateUser(data.userId, data.phone);
+  return authenticatedRequest<{ isNewUser: boolean; profileComplete: boolean }>('/api/account/bootstrap', {});
 }
 
 export async function resendCode(phone: string): Promise<number | null> {

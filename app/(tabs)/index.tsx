@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import { get, ref, remove, runTransaction, set } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,7 +21,7 @@ import { useActiveChallenge } from '../../hooks/useActiveChallenge';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeedEntries } from '../../hooks/useFeedEntries';
 import { auth, db } from '../../services/firebase';
-import { notifyVoteReceived } from '../../services/notifications';
+import { submitVote } from '../../services/voting';
 
 const { width, height } = Dimensions.get('window');
 
@@ -85,36 +84,7 @@ export default function FeedScreen() {
     setVotingId(entry.id);
 
     try {
-      const votesCountRef = ref(db, `entries/${entry.challengeId}/${entry.id}/votes`);
-      const totalVotesRef = ref(db, `challenges/${entry.challengeId}/totalVotes`);
-
-      if (isUnvoting) {
-        // Remove o voto
-        await remove(ref(db, `votes/${entry.challengeId}/${uid}`));
-        await runTransaction(votesCountRef, current => Math.max((current || 0) - 1, 0));
-        await runTransaction(totalVotesRef, current => Math.max((current || 0) - 1, 0));
-      } else {
-        // Regista o voto
-        await set(ref(db, `votes/${entry.challengeId}/${uid}`), {
-          entryId: entry.id,
-          votedAt: Date.now(),
-        });
-        await runTransaction(votesCountRef, current => (current || 0) + 1);
-        await runTransaction(totalVotesRef, current => (current || 0) + 1);
-
-        const voterSnap = await get(ref(db, `users/${uid}`));
-        const voterName = voterSnap.val()?.name || 'Alguém';
-        const challengeSnap = await get(ref(db, `challenges/${entry.challengeId}`));
-        const challengeTitle = challengeSnap.val()?.title || 'um desafio';
-
-        await notifyVoteReceived({
-          entryOwnerId: entry.userId,
-          voterName,
-          challengeTitle,
-          challengeId: entry.challengeId,
-          entryId: entry.id,
-        });
-      }
+      await submitVote(entry.challengeId, entry.id, isUnvoting);
     } catch (e) {
       console.error('Erro ao votar:', e);
       Alert.alert('Erro', 'Não foi possível registar o teu voto. Tenta novamente.');

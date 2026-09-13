@@ -2,6 +2,7 @@ import { onValue, ref } from 'firebase/database';
 import { useEffect, useRef, useState } from 'react';
 import { auth, db } from '../services/firebase';
 import { FeedEntry } from './useFeedEntries';
+import { useBlockedUsers } from './BlockedUsersProvider';
 
 function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -13,6 +14,7 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export function useExploreEntries() {
+  const { blocked } = useBlockedUsers();
   const [allEntries, setAllEntries] = useState<FeedEntry[]>([]); // "Geral" — todos, embaralhados
   const [winnerEntries, setWinnerEntries] = useState<FeedEntry[]>([]); // "Vencedores" — 1 por desafio terminado
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ export function useExploreEntries() {
 
   useEffect(() => {
     const unsub = onValue(
-      ref(db, 'users'),
+      ref(db, 'publicProfiles'),
       snap => { setUsers(snap.exists() ? snap.val() : {}); setUsersLoaded(true); },
       () => setUsersLoaded(true)
     );
@@ -162,5 +164,6 @@ export function useExploreEntries() {
     setLoading(false);
   }, [challenges, users, entriesByChallenge, votesByChallenge, challengesLoaded, usersLoaded, entriesLoaded, votesLoaded]);
 
-  return { allEntries, winnerEntries, loading, userVotes };
+  return { allEntries: allEntries.filter(e => !blocked.includes(e.userId)),
+    winnerEntries: winnerEntries.filter(e => !blocked.includes(e.userId)), loading, userVotes };
 }

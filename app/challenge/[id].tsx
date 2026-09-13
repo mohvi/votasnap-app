@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AuthPrompt from '../../components/ui/AuthPrompt';
 import { useAuth } from '../../hooks/useAuth';
 import { Challenge } from '../../hooks/useChallenges';
+import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
 
 interface Entry {
@@ -50,6 +51,7 @@ function TimeLeft({ endsAt }: { endsAt: number }) {
 }
 
 export default function ChallengeDetailScreen() {
+  const { blocked } = useBlockedUsers();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -57,11 +59,10 @@ export default function ChallengeDetailScreen() {
   const [hasEntered, setHasEntered] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  
+
   const uid = auth.currentUser?.uid;
   const { isLoggedIn } = useAuth();
 
-  // Carregar desafio
   useEffect(() => {
     const unsub = onValue(ref(db, `challenges/${id}`), snap => {
       if (snap.exists()) setChallenge({ id, ...snap.val() });
@@ -70,14 +71,13 @@ export default function ChallengeDetailScreen() {
     return () => unsub();
   }, [id]);
 
-  // Carregar entradas
   useEffect(() => {
     const unsub = onValue(ref(db, `entries/${id}`), async snap => {
       if (!snap.exists()) { setEntries([]); return; }
       const raw = snap.val();
       const list: Entry[] = await Promise.all(
         Object.entries(raw).map(async ([entryId, val]: [string, any]) => {
-          const userSnap = await get(ref(db, `users/${val.userId}`));
+          const userSnap = await get(ref(db, `publicProfiles/${val.userId}`));
           const user = userSnap.val();
           return {
             id: entryId,
@@ -87,14 +87,12 @@ export default function ChallengeDetailScreen() {
           };
         })
       );
-      // ordenar por votos
       list.sort((a, b) => (b.votes || 0) - (a.votes || 0));
       setEntries(list);
     });
     return () => unsub();
   }, [id]);
 
-  // Verificar se já votou ou participou
   useEffect(() => {
     if (!uid) return;
     get(ref(db, `votes/${id}/${uid}`)).then(snap => setHasVoted(snap.exists()));
@@ -124,6 +122,10 @@ export default function ChallengeDetailScreen() {
   const gradientColors = TYPE_COLORS[challenge.type] || TYPE_COLORS.free;
   const emoji = CATEGORY_EMOJI[challenge.category] || '🏆';
   const isEnded = challenge.endsAt < Date.now() || challenge.status !== 'active';
+  const hasCoverImage = !!challenge.coverImage;
+
+  // Patrocinador — verifica type e presença do nome, igual ao ChallengeCard
+  const isSponsored = challenge.type === 'sponsored' && !!challenge.sponsor;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -143,22 +145,80 @@ export default function ChallengeDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* Banner */}
-        <LinearGradient colors={['#1a1a1a', '#0a0a0a']} style={styles.banner}>
-          <Text style={styles.bannerEmoji}>{emoji}</Text>
-          {challenge.sponsor !== '' && (
-            <View style={styles.sponsorBadge}>
-              <Text style={styles.sponsorText}>📢 {challenge.sponsor}</Text>
+        {/* Banner — agora com cover image quando disponível, igual ao ChallengeCard */}
+        {hasCoverImage ? (
+          <View style={styles.banner}>
+            <Image
+              source={{ uri: challenge.coverImage }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+            {/* Escurece levemente a imagem para os badges ficarem legíveis */}
+            <View style={styles.bannerOverlay} />
+
+            {/* Badges em cima — patrocinador + tipo */}
+            <View style={styles.badges}>
+              {isSponsored && (
+                <View style={styles.sponsorBadge}>
+                  <Text style={styles.sponsorText}>📢 {challenge.sponsor}</Text>
+                </View>
+              )}
+              <LinearGradient
+                colors={gradientColors}
+                style={styles.typeBadge}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.typeText}>
+                  {challenge.type === 'sponsored' ? 'Patrocinado'
+                    : challenge.type === 'paid' ? 'Pago'
+                    : 'Gratuito'}
+                </Text>
+              </LinearGradient>
             </View>
-          )}
-          <View style={styles.prizeBadge}>
-            <Text style={styles.prizeText}>
-              {challenge.prizeType === 'cash' ? '💰'
-                : challenge.prizeType === 'physical' ? '🎁' : '🏅'
-              } {challenge.prize}
-            </Text>
+
+            {/* Prémio em baixo à direita */}
+            <View style={styles.prizeBadge}>
+              <Text style={styles.prizeText}>
+                {challenge.prizeType === 'cash' ? '💰'
+                  : challenge.prizeType === 'physical' ? '🎁' : '🏅'
+                }{' '}{challenge.prize}
+              </Text>
+            </View>
           </View>
-        </LinearGradient>
+        ) : (
+          <LinearGradient colors={['#1a1a1a', '#0a0a0a']} style={styles.banner}>
+            <Text style={styles.bannerEmoji}>{emoji}</Text>
+
+            <View style={styles.badges}>
+              {isSponsored && (
+                <View style={styles.sponsorBadge}>
+                  <Text style={styles.sponsorText}>📢 {challenge.sponsor}</Text>
+                </View>
+              )}
+              <LinearGradient
+                colors={gradientColors}
+                style={styles.typeBadge}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.typeText}>
+                  {challenge.type === 'sponsored' ? 'Patrocinado'
+                    : challenge.type === 'paid' ? 'Pago'
+                    : 'Gratuito'}
+                </Text>
+              </LinearGradient>
+            </View>
+
+            <View style={styles.prizeBadge}>
+              <Text style={styles.prizeText}>
+                {challenge.prizeType === 'cash' ? '💰'
+                  : challenge.prizeType === 'physical' ? '🎁' : '🏅'
+                }{' '}{challenge.prize}
+              </Text>
+            </View>
+          </LinearGradient>
+        )}
 
         {/* Info */}
         <View style={styles.info}>
@@ -184,35 +244,35 @@ export default function ChallengeDetailScreen() {
           {/* Acções */}
           {!isEnded && (
             <View style={styles.actions}>
-           {!hasEntered ? (
-  <TouchableOpacity
-    activeOpacity={0.85}
-    style={styles.btnWrap}
-    onPress={() => {
-      if (!isLoggedIn) {
-        setShowAuthPrompt(true);
-        return;
-      }
-      router.push({
-        pathname: '/challenge/submit',
-        params: { id: challenge.id, title: challenge.title },
-      });
-    }}
-  >
-    <LinearGradient
-      colors={gradientColors}
-      style={styles.btn}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-    >
-      <Text style={styles.btnText}>Participar neste desafio</Text>
-    </LinearGradient>
-  </TouchableOpacity>
-) : (
-  <View style={styles.enteredBadge}>
-    <Text style={styles.enteredText}>✓ Já participas neste desafio</Text>
-  </View>
-)}
+              {!hasEntered ? (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.btnWrap}
+                  onPress={() => {
+                    if (!isLoggedIn) {
+                      setShowAuthPrompt(true);
+                      return;
+                    }
+                    router.push({
+                      pathname: '/challenge/submit',
+                      params: { id: challenge.id, title: challenge.title },
+                    });
+                  }}
+                >
+                  <LinearGradient
+                    colors={gradientColors}
+                    style={styles.btn}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.btnText}>Participar neste desafio</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.enteredBadge}>
+                  <Text style={styles.enteredText}>✓ Já participas neste desafio</Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -231,9 +291,8 @@ export default function ChallengeDetailScreen() {
               </Text>
             </View>
           ) : (
-            entries.map((entry, index) => (
+            entries.filter(entry => !blocked.includes(entry.userId)).map((entry, index) => (
               <View key={entry.id} style={styles.entryCard}>
-                {/* Rank */}
                 <View style={[
                   styles.rank,
                   index === 0 && styles.rank1,
@@ -245,7 +304,6 @@ export default function ChallengeDetailScreen() {
                   </Text>
                 </View>
 
-                {/* Avatar */}
                 {entry.userAvatar ? (
                   <Image source={{ uri: entry.userAvatar }} style={styles.avatar} />
                 ) : (
@@ -256,13 +314,11 @@ export default function ChallengeDetailScreen() {
                   </View>
                 )}
 
-                {/* Info */}
                 <View style={styles.entryInfo}>
                   <Text style={styles.entryName}>{entry.userName}</Text>
                   <Text style={styles.entryCaption} numberOfLines={1}>
                     {entry.caption}
                   </Text>
-                  {/* Barra de votos */}
                   <View style={styles.voteBarWrap}>
                     <View style={styles.voteBar}>
                       <LinearGradient
@@ -283,7 +339,6 @@ export default function ChallengeDetailScreen() {
                   </View>
                 </View>
 
-                {/* Botão votar */}
                 {!hasVoted && !isEnded && entry.userId !== uid && (
                   <TouchableOpacity
                     style={styles.voteBtn}
@@ -316,11 +371,12 @@ export default function ChallengeDetailScreen() {
               </View>
             ))
           )}
+
           <AuthPrompt
-              visible={showAuthPrompt}
-              onClose={() => setShowAuthPrompt(false)}
-              action="participar"
-            />
+            visible={showAuthPrompt}
+            onClose={() => setShowAuthPrompt(false)}
+            action="participar"
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -347,23 +403,54 @@ const styles = StyleSheet.create({
 
   scroll: { paddingBottom: 100 },
 
+  // Banner — agora com suporte a imagem de fundo (igual ao ChallengeCard)
   banner: {
     height: 160,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
-  bannerEmoji: { fontSize: 64 },
-  sponsorBadge: {
-    position: 'absolute', top: 12, left: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
   },
-  sponsorText: { color: '#fff', fontSize: 11, fontFamily: 'Inter_400Regular' },
+  bannerOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  bannerEmoji: { fontSize: 64 },
+
+  // Badges cantos — igual ao ChallengeCard
+  badges: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    gap: 6,
+  },
+  sponsorBadge: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  sponsorText: { color: '#fff', fontSize: 10, fontFamily: 'Inter_400Regular' },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  typeText: { color: '#fff', fontSize: 10, fontFamily: 'Inter_700Bold' },
   prizeBadge: {
-    position: 'absolute', bottom: 12, right: 12,
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   prizeText: { color: '#FFD700', fontSize: 13, fontFamily: 'Inter_700Bold' },
 
@@ -418,8 +505,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   rank: {
-    width: 32, height: 32,
-    borderRadius: 16, backgroundColor: '#1a1a1a',
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#1a1a1a',
     alignItems: 'center', justifyContent: 'center',
   },
   rank1: { backgroundColor: 'rgba(255,215,0,0.15)' },

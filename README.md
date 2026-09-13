@@ -4,6 +4,24 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## Get started
 
+This project uses **Expo SDK 57**. Use Expo Go for SDK 57 on your device.
+
+```bash
+npm run start:go -- --clear
+```
+
+Stop any older Metro process with Ctrl+C before running this command, then scan
+the new QR code in Expo Go. `npm start` may select the development client because
+`expo-dev-client` is installed.
+
+For a development build, rebuild the native app after upgrading the SDK
+(`npm run android` locally, or `eas build --profile development --platform android`),
+install it, and run `npm run start:dev -- --clear`. Remote push notifications on
+Android require a development build; they are unavailable in Expo Go.
+
+Check SDK dependency compatibility with `npx expo install --check` and
+`npx expo-doctor`.
+
 1. Install dependencies
 
    ```bash

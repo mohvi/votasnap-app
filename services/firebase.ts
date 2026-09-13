@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
+import { FirebaseError } from 'firebase/app';
 import {
   EmailAuthProvider,
   FacebookAuthProvider,
@@ -8,7 +9,10 @@ import {
   getAuth,
   getReactNativePersistence,
   initializeAuth,
+  browserLocalPersistence,
+  type Auth,
 } from 'firebase/auth';
+import { Platform } from 'react-native';
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 
@@ -26,17 +30,19 @@ const app = getApps().length
   ? getApp()
   : initializeApp(firebaseConfig);
 
-let auth;
+let auth: Auth;
 
 try {
 
-  console.log('INITIALIZING AUTH');
-
   auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
+    persistence: Platform.OS === 'web'
+      ? browserLocalPersistence
+      : getReactNativePersistence(AsyncStorage),
   });
 } catch (error) {
-  console.log('AUTH ALREADY EXISTS', error);
+  if (!(error instanceof FirebaseError) || error.code !== 'auth/already-initialized') {
+    throw error;
+  }
   auth = getAuth(app);
 }
 

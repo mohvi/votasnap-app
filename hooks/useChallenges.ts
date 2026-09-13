@@ -8,6 +8,7 @@ export interface Challenge {
   description: string;
   category: string;
   type: 'free' | 'paid' | 'sponsored';
+  entryFee?: number;
   prize: string;
   prizeType: 'physical' | 'cash' | 'badge';
   sponsor: string;
@@ -15,7 +16,7 @@ export interface Challenge {
   createdBy: string;
   createdAt: number;
   endsAt: number;
-  status: 'active' | 'ended' | 'cancelled';
+  status: 'active' | 'ended' | 'cancelled' | 'pending_confirmation' | 'completed';
   totalVotes: number;
   totalParticipants: number;
 }
@@ -39,7 +40,7 @@ export function useChallenges(filter: 'all' | 'active' = 'active') {
           return;
         }
         const data = snapshot.val();
-        const list: Challenge[] = Object.values(data);
+        const list: Challenge[] = Object.entries(data).map(([id, value]) => ({ ...(value as Challenge), id }));
         // ordena por mais recentes primeiro
         list.sort((a, b) => b.createdAt - a.createdAt);
         setChallenges(list);

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   KeyboardAvoidingView, Platform,
   ScrollView,
   StyleSheet,
@@ -13,19 +14,6 @@ import {
 import { resendCode, sendCode, verifyCode } from '../../services/auth';
 const logo = require('../../assets/images/logo.png');
 
-// ── Anti-fraude: captura de IP público no momento do OTP ──
-// Não identifica o aparelho (sem fingerprint), só a rede de origem.
-// Usado no backend para detetar várias contas criadas a partir do mesmo IP
-// num curto espaço de tempo (signup_logs/{uid}).
-const getPublicIp = async (): Promise<string | null> => {
-  try {
-    const res = await fetch('https://api.ipify.org?format=json');
-    const data = await res.json();
-    return data.ip ?? null;
-  } catch {
-    return null; // falha de rede não deve bloquear o login
-  }
-};
 
 export default function LoginScreen() {
   const [step, setStep] = useState<'phone' | 'code'>('phone');
@@ -34,7 +22,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
-  const [signupIp, setSignupIp] = useState<string | null>(null);
 
   useEffect(() => {
     if (resendTimer > 0) {
@@ -58,11 +45,7 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
     try {
-      // Captura o IP em paralelo ao envio do código — não atrasa o fluxo
-      // se a captura falhar, signupIp fica null e o backend só ignora o sinal.
-      const ipPromise = getPublicIp();
       await sendCode(phone.replace(/\D/g, ''));
-      setSignupIp(await ipPromise);
       setStep('code');
       setResendTimer(60);
     } catch (e: any) {
@@ -77,14 +60,7 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
     try {
-      // signupIp e phoneVerifiedAt seguem para o backend junto da verificação,
-      // para serem gravados em users/{uid}.phoneVerifiedAt e signup_logs/{uid}
-      // no mesmo passo que cria/autentica a conta — evita uma segunda chamada
-      // e garante que nunca existe conta sem este registo.
-      const result = await verifyCode(phone.replace(/\D/g, ''), code, {
-        signupIp,
-        phoneVerifiedAt: Date.now(),
-      });
+      const result = await verifyCode(phone.replace(/\D/g, ''), code);
       if (result.isNewUser) {
         router.replace('/auth/setup-profile');
       } else {
@@ -209,9 +185,9 @@ export default function LoginScreen() {
 
                 <Text style={styles.terms}>
                   Ao continuar, concordas com os nossos{' '}
-                  <Text style={styles.termsLink}>Termos</Text>
+                  <Text accessibilityRole="link" onPress={() => router.push('/terms')} style={styles.termsLink}>Termos</Text>
                   {' '}e{' '}
-                  <Text style={styles.termsLink}>Política</Text>
+                  <Text accessibilityRole="link" onPress={() => Linking.openURL('https://votasnap.vercel.app/policy')} style={styles.termsLink}>Política</Text>
                 </Text>
               </>
             ) : (

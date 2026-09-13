@@ -2,7 +2,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { get, ref, update } from 'firebase/database';
+import { get, ref } from 'firebase/database';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { useEffect, useState } from 'react';
 import {
@@ -15,13 +15,10 @@ import {
   Text, TextInput, TouchableOpacity,
   View,
 } from 'react-native';
+import { authenticatedRequest } from '../../services/api';
 import provinces from '../../hooks/useProvinces';
 import { auth, db, storage } from '../../services/firebase';
 
-// Janela mínima de existência da conta para poder votar em desafios
-// pagos/patrocinados. Desafios gratuitos continuam liberados sempre.
-// Mantido aqui para ser gravado no perfil e reutilizado no ecrã de votação.
-const MIN_ACCOUNT_AGE_DAYS_FOR_PAID_VOTES = 7;
 
 export default function SetupProfileScreen() {
   const [name, setName] = useState('');
@@ -34,7 +31,7 @@ export default function SetupProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState('');
-  const [usernameStatus, setUsernameStatus] = useState<'checking' | 'available' | 'taken' | 'invalid' | null>(null);
+  const [usernameStatus, setUsernameStatus] = useState<'checking' | 'available' | 'taken' | 'invalid' | 'error' | null>(null);
   const [existingUsernames, setExistingUsernames] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [showAgeModal, setShowAgeModal] = useState(false);
@@ -46,7 +43,7 @@ export default function SetupProfileScreen() {
   useEffect(() => {
     const fetchExistingUsernames = async () => {
       try {
-        const usersRef = ref(db, 'users');
+        const usersRef = ref(db, 'publicProfiles');
         const snapshot = await get(usersRef);
 
         if (snapshot.exists()) {
@@ -155,32 +152,8 @@ export default function SetupProfileScreen() {
   // Se já existir outra conta com o mesmo pushToken, é um forte indício
   // de que duas contas estão a ser usadas no mesmo telemóvel — não bloqueia
   // o registo (pode ser família/casal a partilhar), só sinaliza para revisão.
-  const checkSharedDevice = async (currentUid: string): Promise<string[]> => {
-    try {
-      const myPushToken = (await import('expo-notifications'))
-        .default?.getExpoPushTokenAsync?.()
-        .then((t: any) => t?.data)
-        .catch(() => null);
 
-      const tokenSnapshot = await get(ref(db, 'users'));
-      if (!tokenSnapshot.exists()) return [];
-
-      const usersData = tokenSnapshot.val();
-      const myToken = await myPushToken;
-      if (!myToken) return [];
-
-      const sharingUids = Object.entries(usersData)
-        .filter(([uid, u]: [string, any]) => uid !== currentUid && u.pushToken === myToken)
-        .map(([uid]) => uid);
-
-      return sharingUids;
-    } catch (e) {
-      console.error('Error checking shared device:', e);
-      return []; // falha na checagem nunca deve bloquear o registo
-    }
-  };
-
-  const handleSave = async () => {
+  const handleSave = async (ageConfirmed = false) => {
     if (!name.trim()) {
       setError('Introduz o teu nome');
       return;
@@ -201,7 +174,7 @@ export default function SetupProfileScreen() {
       return;
     }
 
-    if (!isOver13) {
+    if (!isOver13 && !ageConfirmed) {
       setShowAgeModal(true);
       return;
     }
@@ -238,10 +211,7 @@ export default function SetupProfileScreen() {
         }
       }
 
-      // Verificação de partilha de aparelho — não bloqueia, só regista
-      const sharingWithUids = await checkSharedDevice(uid);
-
-      await update(ref(db, `users/${uid}`), {
+      await authenticatedRequest('/api/account/profile', {
         name: name.trim(),
         username: normalizedUsername,
         bio: bio.trim(),
@@ -249,17 +219,6 @@ export default function SetupProfileScreen() {
         province: province,
         city: city,
         isOver13: true,
-        profileComplete: true,
-        updatedAt: Date.now(),
-        // ── Campos de anti-fraude ──
-        // accountCreatedAt já existe como createdAt no registo (login),
-        // aqui só garantimos minAccountAgeForPaidVotes documentado no perfil
-        // para o ecrã de votação não precisar de recalcular a regra.
-        minAccountAgeDaysForPaidVotes: MIN_ACCOUNT_AGE_DAYS_FOR_PAID_VOTES,
-        riskFlags: {
-          sharedPushToken: sharingWithUids.length > 0,
-          sharedWithUids: sharingWithUids.length > 0 ? sharingWithUids : null,
-        },
       });
 
       router.replace('/(tabs)');
@@ -294,6 +253,8 @@ export default function SetupProfileScreen() {
         return 'Username indisponível';
       case 'invalid':
         return 'Formato inválido';
+      case 'error':
+        return 'Não foi possível verificar. Tenta novamente.';
       default:
         return '';
     }
@@ -483,7 +444,7 @@ export default function SetupProfileScreen() {
 
           {/* Botão */}
           <TouchableOpacity
-            onPress={handleSave}
+            onPress={() => handleSave()}
             disabled={isSaving || !name.trim() || usernameStatus !== 'available' || !province || !city}
             activeOpacity={0.85}
             style={[
@@ -535,7 +496,7 @@ export default function SetupProfileScreen() {
                 onPress={() => {
                   setIsOver13(true);
                   setShowAgeModal(false);
-                  handleSave();
+                  handleSave(true);
                 }}
               >
                 <Text style={styles.modalButtonTextConfirm}>Confirmo</Text>

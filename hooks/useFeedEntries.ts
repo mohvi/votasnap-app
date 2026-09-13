@@ -1,6 +1,7 @@
 import { onValue, ref } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { auth, db } from '../services/firebase';
+import { useBlockedUsers } from './BlockedUsersProvider';
 
 export interface FeedEntry {
   id: string;
@@ -20,6 +21,7 @@ export interface FeedEntry {
 }
 
 export function useFeedEntries() {
+  const { blocked } = useBlockedUsers();
   const [freshEntries, setFreshEntries] = useState<FeedEntry[]>([]);
   const [allEntries, setAllEntries] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,7 @@ export function useFeedEntries() {
   }, []);
 
   useEffect(() => {
-    const usersRef = ref(db, 'users');
+    const usersRef = ref(db, 'publicProfiles');
     const unsubscribe = onValue(
       usersRef,
       snap => {
@@ -244,5 +246,6 @@ export function useFeedEntries() {
     setTimeout(() => setRefreshing(false), 400);
   }, []);
 
-  return { freshEntries, allEntries, loading, refreshing, refresh, userVotes };
+  return { freshEntries: freshEntries.filter(e => !blocked.includes(e.userId)),
+    allEntries: allEntries.filter(e => !blocked.includes(e.userId)), loading, refreshing, refresh, userVotes };
 }

@@ -1,3 +1,5 @@
+import { submitVote } from '../../../services/voting';
+import { useBlockedUsers } from '../../../hooks/BlockedUsersProvider';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { get, ref, set, update } from 'firebase/database';
@@ -37,6 +39,7 @@ interface User {
 }
 
 export default function EntryDeepLinkScreen() {
+  const { blocked } = useBlockedUsers();
   const { challengeId, entryId } = useLocalSearchParams<{
     challengeId: string;
     entryId: string;
@@ -67,7 +70,7 @@ export default function EntryDeepLinkScreen() {
         if (challengeSnap.exists()) setChallenge(challengeSnap.val());
 
         // Carregar utilizador
-        const userSnap = await get(ref(db, `users/${entryData.userId}`));
+        const userSnap = await get(ref(db, `publicProfiles/${entryData.userId}`));
         if (userSnap.exists()) setUser(userSnap.val());
 
         // Verificar se já votou
@@ -103,20 +106,7 @@ export default function EntryDeepLinkScreen() {
 
     setVoting(true);
     try {
-      await set(ref(db, `votes/${challengeId}/${uid}`), {
-        entryId,
-        votedAt: Date.now(),
-      });
-      const entrySnap = await get(ref(db, `entries/${challengeId}/${entryId}`));
-      const currentVotes = entrySnap.val()?.votes || 0;
-      await update(ref(db, `entries/${challengeId}/${entryId}`), {
-        votes: currentVotes + 1,
-      });
-      const challengeSnap = await get(ref(db, `challenges/${challengeId}`));
-      const currentTotal = challengeSnap.val()?.totalVotes || 0;
-      await update(ref(db, `challenges/${challengeId}`), {
-        totalVotes: currentTotal + 1,
-      });
+      await submitVote(challengeId, entryId);
       setHasVoted(true);
       setEntry(prev => prev ? { ...prev, votes: prev.votes + 1 } : prev);
       Alert.alert('Votado! 🗳️', `Votaste em ${user?.name}!`);
@@ -135,7 +125,7 @@ export default function EntryDeepLinkScreen() {
     );
   }
 
-  if (!entry || !challenge) {
+  if (!entry || !challenge || blocked.includes(entry.userId)) {
     return (
       <SafeAreaView style={styles.center}>
         <Text style={styles.errorEmoji}>😕</Text>

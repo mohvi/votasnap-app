@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { get, ref } from 'firebase/database';
+import { onValue, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -43,52 +43,38 @@ export default function RankingScreen() {
   const [selectedChallenge, setSelectedChallenge] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
+  const [liveChallenges, setLiveChallenges] = useState<Record<string, any> | null>(null);
+  const [liveEntries, setLiveEntries] = useState<Record<string, any> | null>(null);
+  const [liveProfiles, setLiveProfiles] = useState<Record<string, any> | null>(null);
   useEffect(() => {
-    const load = async () => {
-      const challengesSnap = await get(ref(db, 'challenges'));
-      if (!challengesSnap.exists()) { setLoading(false); return; }
-
-      const challengesData = challengesSnap.val();
-      const challengesList: Challenge[] = Object.entries(challengesData)
-        .filter(([_, c]: [string, any]) => c.status === 'active')
-        .map(([id, c]: [string, any]) => ({ id, ...c }));
-      setChallenges(challengesList);
-
-      const allEntries: RankEntry[] = [];
-
-      await Promise.all(
-        Object.entries(challengesData).map(async ([challengeId, challenge]: [string, any]) => {
-          if (challenge.status !== 'active') return;
-          const entriesSnap = await get(ref(db, `entries/${challengeId}`));
-          if (!entriesSnap.exists()) return;
-
-          await Promise.all(
-            Object.entries(entriesSnap.val()).map(async ([entryId, entry]: [string, any]) => {
-              const userSnap = await get(ref(db, `users/${entry.userId}`));
-              const user = userSnap.val();
-              allEntries.push({
-                id: entryId,
-                challengeId,
-                challengeTitle: challenge.title,
-                challengePrize: challenge.prize,
-                userId: entry.userId,
-                userName: user?.username || 'Utilizador',
-                userAvatar: user?.avatar || null,
-                mediaUrl: entry.mediaUrl,
-                caption: entry.caption,
-                votes: entry.votes || 0,
-              });
-            })
-          );
-        })
-      );
-
-      allEntries.sort((a, b) => b.votes - a.votes);
-      setTopEntries(allEntries);
-      setLoading(false);
-    };
-    load();
+    const unsubscribes = [
+      onValue(ref(db, 'challenges'), snap => setLiveChallenges(snap.val() || {})),
+      onValue(ref(db, 'entries'), snap => setLiveEntries(snap.val() || {})),
+      onValue(ref(db, 'publicProfiles'), snap => setLiveProfiles(snap.val() || {})),
+    ];
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
   }, []);
+
+  useEffect(() => {
+    if (!liveChallenges || !liveEntries || !liveProfiles) return;
+    const active = Object.entries(liveChallenges)
+      .filter(([, challenge]) => challenge.status === 'active')
+      .map(([id, challenge]) => ({ ...challenge, id }));
+    setChallenges(active);
+    if (selectedChallenge !== 'all' && !active.some(c => c.id === selectedChallenge)) setSelectedChallenge('all');
+    const entries: RankEntry[] = [];
+    for (const challenge of active) {
+      for (const [entryId, entry] of Object.entries<any>(liveEntries[challenge.id] || {})) {
+        const user = liveProfiles[entry.userId];
+        entries.push({ id: entryId, challengeId: challenge.id, challengeTitle: challenge.title,
+          challengePrize: challenge.prize, userId: entry.userId, userName: user?.username || 'Utilizador',
+          userAvatar: user?.avatar || null, mediaUrl: entry.mediaUrl, caption: entry.caption, votes: entry.votes || 0 });
+      }
+    }
+    entries.sort((a, b) => b.votes - a.votes);
+    setTopEntries(entries);
+    setLoading(false);
+  }, [liveChallenges, liveEntries, liveProfiles, selectedChallenge]);
 
   const filtered = selectedChallenge === 'all'
     ? topEntries

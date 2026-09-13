@@ -1,0 +1,45 @@
+{
+  "rules": {
+    ".read": "auth != null && auth.token.admin === true",
+    ".write": "auth != null && auth.token.admin === true",
+    "publicProfiles": {".read": true},
+    "challenges": {".read": true, ".indexOn": ["status", "endsAt"]},
+    "entries": {".read": true},
+    "votes": {".read": true},
+    "sponsors": {".read": true},
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "pushToken": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('banned').val() !== true && !data.parent().child('deletionRequestedAt').exists()",
+          ".validate": "newData.isString() && newData.val().length <= 250"
+        },
+        "pushTokenUpdatedAt": {
+          ".write": "auth != null && auth.uid === $uid && data.parent().child('banned').val() !== true && !data.parent().child('deletionRequestedAt').exists()",
+          ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+        }
+      }
+    },
+    "snaps_history": {"$uid": {".read": "auth != null && auth.uid === $uid"}},
+    "blocks": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$blockedUid": {
+          ".write": "auth != null && auth.uid === $uid && $uid !== $blockedUid",
+          ".validate": "newData.val() === true"
+        }
+      }
+    },
+    "reports": {
+      "$report": {
+        ".write": "auth != null && !data.exists() && newData.child('reportedBy').val() === auth.uid && root.child('users').child(auth.uid).child('banned').val() !== true",
+        ".validate": "auth.token.admin === true || newData.hasChildren(['entryId', 'challengeId', 'reportedBy', 'reason', 'status', 'createdAt'])",
+        "reportedBy": {".validate": "auth.token.admin === true || (newData.isString() && newData.val() === auth.uid)"},
+        "reason": {".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000"},
+        "status": {".validate": "auth.token.admin === true || newData.val() === 'pending'"},
+        "createdAt": {".validate": "newData.isNumber() && newData.val() <= now + 60000"},
+        "$field": {".validate": "auth.token.admin === true || (newData.isString() && newData.val().length <= 2500)"}
+      }
+    }
+  }
+}

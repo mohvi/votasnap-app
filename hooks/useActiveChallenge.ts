@@ -21,7 +21,7 @@ export function useActiveChallenge() {
         return;
       }
       const data = snapshot.val();
-      const list: Challenge[] = Object.values(data);
+      const list: Challenge[] = Object.entries(data).map(([id, value]) => ({ ...(value as Challenge), id }));
       // Se houver mais de um por engano, escolhe o mais recente
       list.sort((a, b) => b.createdAt - a.createdAt);
       setChallenge(list[0] || null);

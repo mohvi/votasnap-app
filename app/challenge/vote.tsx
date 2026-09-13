@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { get, ref, set, update } from 'firebase/database';
+import { submitVote } from '../../services/voting';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -28,31 +28,7 @@ export default function VoteScreen() {
     if (!uid) { Alert.alert('Erro', 'Sessão expirada'); return; }
     setLoading(true);
     try {
-      // 1. Verificar se já votou
-      const voteRef = ref(db, `votes/${challengeId}/${uid}`);
-      const voteSnap = await get(voteRef);
-      if (voteSnap.exists()) {
-        Alert.alert('Atenção', 'Já votaste neste desafio!');
-        return;
-      }
-
-      // 2. Registar voto
-      await set(voteRef, {
-        entryId,
-        votedAt: Date.now(),
-      });
-
-      // 3. Incrementar votos na entrada
-      const entryRef = ref(db, `entries/${challengeId}/${entryId}`);
-      const entrySnap = await get(entryRef);
-      const currentVotes = entrySnap.val()?.votes || 0;
-      await update(entryRef, { votes: currentVotes + 1 });
-
-      // 4. Incrementar total de votos no desafio
-      const challengeRef = ref(db, `challenges/${challengeId}`);
-      const challengeSnap = await get(challengeRef);
-      const currentTotal = challengeSnap.val()?.totalVotes || 0;
-      await update(challengeRef, { totalVotes: currentTotal + 1 });
+      await submitVote(challengeId, entryId);
 
       // 5. Haptic feedback
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

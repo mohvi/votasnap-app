@@ -71,7 +71,12 @@
           "color": "#ff286a",
           "sounds": []
         }
-      ]
+      ],
+      "expo-image",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-video",
+      "expo-web-browser"
     ],
     "scheme": "votasnap",
     "extra": {

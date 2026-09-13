@@ -20,6 +20,8 @@ export default function ActiveChallengeBanner({ challenge }: { challenge: Challe
     });
   };
 
+  const isSponsored = challenge.type === 'sponsored' && !!challenge.sponsor;
+
   return (
     <TouchableOpacity
       style={styles.wrap}
@@ -36,15 +38,28 @@ export default function ActiveChallengeBanner({ challenge }: { challenge: Challe
         end={{ x: 1, y: 0 }}
       >
         <View style={styles.info}>
-          <Text style={styles.label}>🏆 Desafio activo</Text>
+          {/* Label — muda consoante for patrocinado ou não */}
+          <Text style={styles.label}>
+            {isSponsored ? '🏢 Desafio patrocinado' : '🏆 Desafio activo'}
+          </Text>
+
           <Text style={styles.title} numberOfLines={1}>{challenge.title}</Text>
+
           <View style={styles.metaRow}>
             <Text style={styles.prize}>
               {challenge.prizeType === 'cash' ? '💰' : '🎁'} {challenge.prize}
             </Text>
             <TimeLeft endsAt={challenge.endsAt} />
           </View>
+
+          {/* Pill do patrocinador — só aparece quando challenge.type === 'sponsored' */}
+          {isSponsored && (
+            <View style={styles.sponsorPill}>
+              <Text style={styles.sponsorText}>📢 {challenge.sponsor}</Text>
+            </View>
+          )}
         </View>
+
         <View style={styles.cta}>
           <Text style={styles.ctaText}>Participar</Text>
         </View>
@@ -105,6 +120,19 @@ const styles = StyleSheet.create({
   timeOver: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+  },
+  sponsorPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  sponsorText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 10,
     fontFamily: 'Inter_500Medium',
   },
   cta: {

@@ -22,6 +22,12 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+*-firebase-adminsdk-*.json
+service-account*.json
+.env
+.env.*
+google-services.json
+
 # Metro
 .metro-health-check*
 
@@ -45,3 +51,6 @@ example
 # generated native folders
 /ios
 /android
+
+.firebase-api/
+*-debug.log

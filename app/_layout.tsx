@@ -1,13 +1,14 @@
 import { Inter_400Regular, Inter_500Medium, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
 import { router, Stack } from 'expo-router';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { processEndedChallenges } from '../services/challengeProcessor';
 import { auth } from '../services/firebase';
+import { BlockedUsersProvider } from '../hooks/BlockedUsersProvider';
 import {
   registerForPushNotifications,
   savePushToken,
@@ -22,8 +23,6 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
 
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync();
@@ -39,7 +38,6 @@ export default function RootLayout() {
         } catch (e) {
           console.log('[PUSH] Não disponível:', e);
         }
-         processEndedChallenges();
       }
     });
     return () => unsub();
@@ -47,6 +45,7 @@ export default function RootLayout() {
 
   // Listeners de notificação — só se o módulo estiver disponível
 useEffect(() => {
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return;
   let notifListener: any;
   let responseList: any;
 
@@ -58,7 +57,8 @@ useEffect(() => {
 
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
       }),
@@ -84,9 +84,8 @@ useEffect(() => {
 
   return () => {
     try {
-      const Notifications = require('expo-notifications');
-      if (notifListener) Notifications.removeNotificationSubscription(notifListener);
-      if (responseList) Notifications.removeNotificationSubscription(responseList);
+      notifListener?.remove();
+      responseList?.remove();
     } catch {}
   };
 }, []);
@@ -96,6 +95,7 @@ useEffect(() => {
 
   return (
     <SafeAreaProvider>
+    <BlockedUsersProvider>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
@@ -109,6 +109,7 @@ useEffect(() => {
         <Stack.Screen name="entry/[challengeId]/[entryId]" />
       </Stack>
     </GestureHandlerRootView>
+    </BlockedUsersProvider>
     </SafeAreaProvider>
   );
 }
