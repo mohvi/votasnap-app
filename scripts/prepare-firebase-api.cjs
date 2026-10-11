@@ -8,5 +8,11 @@ for (const file of ['index.js', 'challenge-routes.js', 'challenge-operations.js'
 const dependencies = Object.fromEntries(['axios', 'cors', 'dotenv', 'express', 'express-rate-limit', 'firebase-admin'].map(name => [name, require(path.join(backend, 'node_modules', name, 'package.json')).version]));
 dependencies['firebase-functions'] = '^6.6.0';
 fs.writeFileSync(path.join(target, 'package.json'), JSON.stringify({name:'votasnap-api',private:true,main:'functions.cjs',engines:{node:'22'},dependencies},null,2));
-fs.writeFileSync(path.join(target, 'functions.cjs'), "const { onRequest } = require('firebase-functions/v2/https');\nexports.votasnapApi = onRequest({ region: 'us-central1', minInstances: 0, maxInstances: 1, concurrency: 20, memory: '256MiB', timeoutSeconds: 120, invoker: 'public', secrets: ['VOTASNAP_MPESA_API_KEY'] }, require('./index'));\n");
+fs.writeFileSync(path.join(target, 'functions.cjs'), "const { onRequest } = require('firebase-functions/v2/https');\nexports.votasnapApi = onRequest({ region: 'us-central1', minInstances: 0, maxInstances: 1, concurrency: 20, memory: '256MiB', timeoutSeconds: 120, invoker: 'public', secrets: ['VOTASNAP_MPESA_API_KEY'] }, require('./index'));\n" +
+  "const { onSchedule } = require('firebase-functions/v2/scheduler');\n" +
+  "// Closes challenges once their deadline passes (idempotent; already processed challenges are skipped).\n" +
+  "exports.closeExpiredChallenges = onSchedule({ schedule: 'every 5 minutes', region: 'us-central1', maxInstances: 1, memory: '256MiB', timeoutSeconds: 120 }, async () => {\n" +
+  "  const closed = await require('./index').closeExpiredChallenges();\n" +
+  "  if (closed.length) console.log('Closed expired challenges:', closed.join(', '));\n" +
+  "});\n");
 console.log('API source staged without secrets.');
