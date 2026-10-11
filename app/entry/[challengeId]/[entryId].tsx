@@ -18,6 +18,8 @@ import { VideoPlayer } from '../../../components/feed/FeedCard';
 import { auth, db } from '../../../services/firebase';
 import { colors, gradients } from '../../../constants/theme';
 import { toast } from 'sonner-native';
+import ChallengeEndedScreen from '../../../components/challenge/ChallengeEndedScreen';
+import { isChallengeOpen, useNow } from '../../../hooks/useChallenges';
 
 interface Entry {
   userId: string;
@@ -56,7 +58,8 @@ export default function EntryDeepLinkScreen() {
 
   const uid = auth.currentUser?.uid;
   const isLoggedIn = !!uid;
-  const isEnded = challenge ? challenge.endsAt < Date.now() || challenge.status !== 'active' : false;
+  const now = useNow([challenge?.endsAt]);
+  const isEnded = challenge ? !isChallengeOpen(challenge, now) : false;
 
   useEffect(() => {
     const load = async () => {
@@ -150,6 +153,8 @@ export default function EntryDeepLinkScreen() {
       </SafeAreaView>
     );
   }
+
+  if (isEnded) return <ChallengeEndedScreen />;
 
   return (
     <SafeAreaView style={styles.container}>

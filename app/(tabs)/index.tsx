@@ -235,7 +235,7 @@ export default function FeedScreen() {
         <View
           style={[
             styles.progressFill,
-            { width: `${((currentIndex + 1) / allEntries.length) * 100}%` },
+            { width: `${Math.min(100, ((currentIndex + 1) / allEntries.length) * 100)}%` },
           ]}
         />
       </View>

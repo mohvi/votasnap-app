@@ -21,6 +21,31 @@ export interface Challenge {
   totalParticipants: number;
 }
 
+// Um desafio só é visível enquanto está activo E dentro do prazo. O encerramento
+// no servidor é manual, por isso `status` pode continuar 'active' depois de `endsAt`.
+export function isChallengeOpen(
+  challenge: { status?: string; endsAt?: number } | null | undefined,
+  now = Date.now(),
+): boolean {
+  return !!challenge && challenge.status === 'active'
+    && Number.isFinite(challenge.endsAt) && (challenge.endsAt as number) > now;
+}
+
+// Devolve a hora actual e volta a renderizar quando o próximo prazo passa,
+// para que um desafio desapareça no momento em que termina.
+export function useNow(deadlines: (number | undefined)[]): number {
+  const [now, setNow] = useState(Date.now());
+  const key = deadlines.join(',');
+  useEffect(() => {
+    const next = Math.min(...deadlines.filter((d): d is number => Number.isFinite(d) && (d as number) > now));
+    if (!Number.isFinite(next)) return;
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(next - now + 50, 2 ** 31 - 1));
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, now]);
+  return now;
+}
+
 export function useChallenges(filter: 'all' | 'active' = 'active') {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,5 +80,7 @@ export function useChallenges(filter: 'all' | 'active' = 'active') {
     return () => unsub();
   }, [filter]);
 
-  return { challenges, loading, error };
+  const now = useNow(challenges.map(c => c.endsAt));
+  const visible = filter === 'active' ? challenges.filter(c => isChallengeOpen(c, now)) : challenges;
+  return { challenges: visible, loading, error };
 }

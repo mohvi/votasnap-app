@@ -1,10 +1,10 @@
 import { equalTo, onValue, orderByChild, query, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { db } from '../services/firebase';
-import { Challenge } from './useChallenges';
+import { Challenge, isChallengeOpen, useNow } from './useChallenges';
 
 export function useActiveChallenge() {
-  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [candidates, setCandidates] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,21 +15,19 @@ export function useActiveChallenge() {
     );
 
     const unsub = onValue(challengesRef, snapshot => {
-      if (!snapshot.exists()) {
-        setChallenge(null);
-        setLoading(false);
-        return;
-      }
-      const data = snapshot.val();
+      const data = snapshot.val() || {};
       const list: Challenge[] = Object.entries(data).map(([id, value]) => ({ ...(value as Challenge), id }));
       // Se houver mais de um por engano, escolhe o mais recente
       list.sort((a, b) => b.createdAt - a.createdAt);
-      setChallenge(list[0] || null);
+      setCandidates(list);
       setLoading(false);
     });
 
     return () => unsub();
   }, []);
+
+  const now = useNow(candidates.map(c => c.endsAt));
+  const challenge = candidates.find(c => isChallengeOpen(c, now)) ?? null;
 
   return { challenge, loading };
 }

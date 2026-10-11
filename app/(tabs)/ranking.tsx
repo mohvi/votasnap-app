@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
+import { isChallengeOpen, useNow } from '../../hooks/useChallenges';
 
 interface RankEntry {
   id: string;
@@ -47,6 +48,7 @@ export default function RankingScreen() {
   const [liveChallenges, setLiveChallenges] = useState<Record<string, any> | null>(null);
   const [liveEntries, setLiveEntries] = useState<Record<string, any> | null>(null);
   const [liveProfiles, setLiveProfiles] = useState<Record<string, any> | null>(null);
+  const now = useNow(Object.values<any>(liveChallenges || {}).map(c => c?.endsAt));
   useEffect(() => {
     const unsubscribes = [
       onValue(ref(db, 'challenges'), snap => setLiveChallenges(snap.val() || {})),
@@ -59,7 +61,7 @@ export default function RankingScreen() {
   useEffect(() => {
     if (!liveChallenges || !liveEntries || !liveProfiles) return;
     const active = Object.entries(liveChallenges)
-      .filter(([, challenge]) => challenge.status === 'active')
+      .filter(([, challenge]) => isChallengeOpen(challenge, now))
       .map(([id, challenge]) => ({ ...challenge, id }));
     setChallenges(active);
     if (selectedChallenge !== 'all' && !active.some(c => c.id === selectedChallenge)) setSelectedChallenge('all');
@@ -75,7 +77,7 @@ export default function RankingScreen() {
     entries.sort((a, b) => b.votes - a.votes);
     setTopEntries(entries);
     setLoading(false);
-  }, [liveChallenges, liveEntries, liveProfiles, selectedChallenge]);
+  }, [liveChallenges, liveEntries, liveProfiles, selectedChallenge, now]);
 
   const filtered = selectedChallenge === 'all'
     ? topEntries

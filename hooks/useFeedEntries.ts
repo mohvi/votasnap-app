@@ -2,6 +2,7 @@ import { onValue, ref } from 'firebase/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { auth, db } from '../services/firebase';
 import { useBlockedUsers } from './BlockedUsersProvider';
+import { isChallengeOpen, useNow } from './useChallenges';
 
 export interface FeedEntry {
   id: string;
@@ -34,6 +35,7 @@ export function useFeedEntries() {
   const [votesByChallenge, setVotesByChallenge] = useState<Record<string, any>>({});
 
   const [challengesLoaded, setChallengesLoaded] = useState(false);
+  const now = useNow(Object.values<any>(challenges).map(c => c?.endsAt));
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [entriesLoaded, setEntriesLoaded] = useState(false);
   const [votesLoaded, setVotesLoaded] = useState(false);
@@ -153,7 +155,7 @@ export function useFeedEntries() {
     const all: FeedEntry[] = [];
 
     for (const [challengeId, challenge] of Object.entries<any>(challenges)) {
-      if (challenge?.status !== 'active') continue;
+      if (!isChallengeOpen(challenge, now)) continue;
 
       const alreadyVoted = !!(currentUid && votesByChallenge?.[challengeId]?.[currentUid]);
       const entries = entriesByChallenge?.[challengeId];
@@ -239,7 +241,7 @@ export function useFeedEntries() {
 
     setLoading(false);
     setRefreshing(false);
-  }, [challenges, users, entriesByChallenge, votesByChallenge, challengesLoaded, usersLoaded, entriesLoaded, votesLoaded]);
+  }, [challenges, users, entriesByChallenge, votesByChallenge, challengesLoaded, usersLoaded, entriesLoaded, votesLoaded, now]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);

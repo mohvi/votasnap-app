@@ -18,6 +18,8 @@ import { Challenge } from '../../hooks/useChallenges';
 import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
+import ChallengeEndedScreen from '../../components/challenge/ChallengeEndedScreen';
+import { isChallengeOpen, useNow } from '../../hooks/useChallenges';
 
 interface Entry {
   id: string;
@@ -63,6 +65,7 @@ export default function ChallengeDetailScreen() {
 
   const uid = auth.currentUser?.uid;
   const { isLoggedIn } = useAuth();
+  const now = useNow([challenge?.endsAt]);
 
   useEffect(() => {
     const unsub = onValue(ref(db, `challenges/${id}`), snap => {
@@ -119,6 +122,8 @@ export default function ChallengeDetailScreen() {
       </View>
     );
   }
+
+  if (!isChallengeOpen(challenge, now)) return <ChallengeEndedScreen />;
 
   const gradientColors = TYPE_COLORS[challenge.type] || TYPE_COLORS.free;
   const emoji = CATEGORY_EMOJI[challenge.category] || '🏆';
