@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../../services/firebase';
+import { colors, gradients } from '../../constants/theme';
 
 interface RankEntry {
   id: string;
@@ -81,16 +82,16 @@ export default function RankingScreen() {
     : topEntries.filter(e => e.challengeId === selectedChallenge);
 
   const getMedalColor = (i: number) => {
-    if (i === 0) return ['#FFD700', '#FFA500'];
-    if (i === 1) return ['#C0C0C0', '#A0A0A0'];
-    if (i === 2) return ['#CD7F32', '#A0522D'];
-    return ['#1a1a1a', '#111'];
+    if (i === 0) return [colors.gold, colors.warning];
+    if (i === 1) return [colors.silver, colors.textSecondary];
+    if (i === 2) return gradients.bronze;
+    return [colors.surface, colors.surfaceSunken];
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#ff286a" size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -116,7 +117,7 @@ export default function RankingScreen() {
               {filtered[1].userAvatar ? (
                 <Image source={{ uri: filtered[1].userAvatar }} style={styles.podiumAvatar} />
               ) : (
-                <LinearGradient colors={['#C0C0C0', '#A0A0A0']} style={styles.podiumAvatar}>
+                <LinearGradient colors={[colors.silver, colors.textSecondary]} style={styles.podiumAvatar}>
                   <Text style={styles.podiumAvatarText}>
                     {filtered[1].userName.charAt(0)}
                   </Text>
@@ -137,7 +138,7 @@ export default function RankingScreen() {
               {filtered[0].userAvatar ? (
                 <Image source={{ uri: filtered[0].userAvatar }} style={[styles.podiumAvatar, styles.podiumAvatarFirst]} />
               ) : (
-                <LinearGradient colors={['#ff286a', '#ff8c5a']} style={[styles.podiumAvatar, styles.podiumAvatarFirst]}>
+                <LinearGradient colors={gradients.primary} style={[styles.podiumAvatar, styles.podiumAvatarFirst]}>
                   <Text style={[styles.podiumAvatarText, { fontSize: 24 }]}>
                     {filtered[0].userName.charAt(0)}
                   </Text>
@@ -147,11 +148,11 @@ export default function RankingScreen() {
               <Text style={styles.podiumName} numberOfLines={1}>
                 {filtered[0].userName}
               </Text>
-              <Text style={[styles.podiumVotes, { color: '#ff286a' }]}>
+              <Text style={[styles.podiumVotes, { color: colors.primary }]}>
                 {filtered[0].votes} votos
               </Text>
               <LinearGradient
-                colors={['#ff286a', '#ff8c5a']}
+                colors={gradients.primary}
                 style={styles.winnerBadge}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}>
@@ -164,7 +165,7 @@ export default function RankingScreen() {
               {filtered[2].userAvatar ? (
                 <Image source={{ uri: filtered[2].userAvatar }} style={styles.podiumAvatar} />
               ) : (
-                <LinearGradient colors={['#CD7F32', '#A0522D']} style={styles.podiumAvatar}>
+                <LinearGradient colors={gradients.bronze} style={styles.podiumAvatar}>
                   <Text style={styles.podiumAvatarText}>
                     {filtered[2].userName.charAt(0)}
                   </Text>
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: colors.surface,
   },
   headerTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#fff' },
 
@@ -287,15 +288,15 @@ const styles = StyleSheet.create({
   podiumItem: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 16,
     borderWidth: 0.5,
-    borderColor: '#222',
+    borderColor: colors.surfaceRaised,
     padding: 12,
     gap: 4,
   },
   podiumFirst: {
-    borderColor: '#ff286a',
+    borderColor: colors.primary,
     backgroundColor: 'rgba(255,40,106,0.06)',
     paddingTop: 8,
   },
@@ -309,7 +310,7 @@ const styles = StyleSheet.create({
   },
   podiumAvatarFirst: {
     width: 64, height: 64, borderRadius: 32,
-    borderWidth: 2, borderColor: '#ff286a',
+    borderWidth: 2, borderColor: colors.primary,
   },
   podiumAvatarText: {
     color: '#fff', fontSize: 20, fontFamily: 'Inter_700Bold',
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
     fontSize: 11, fontFamily: 'Inter_700Bold', color: '#fff',
     textAlign: 'center',
   },
-  podiumVotes: { fontSize: 11, fontFamily: 'Inter_400Regular', color: '#888' },
+  podiumVotes: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.textMuted },
   winnerBadge: {
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginTop: 4,
   },
@@ -335,17 +336,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
+    borderColor: colors.border,
     maxWidth: 160,
   },
   filterActive: {
-    backgroundColor: '#ff286a',
-    borderColor: '#ff286a',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterText: {
-    color: '#888', fontSize: 12, fontFamily: 'Inter_400Regular',
+    color: colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular',
   },
   filterTextActive: {
     color: '#fff', fontFamily: 'Inter_700Bold',
@@ -358,15 +359,15 @@ const styles = StyleSheet.create({
   },
   empty: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   emptyEmoji: { fontSize: 40 },
-  emptyText: { color: '#555', fontSize: 14, fontFamily: 'Inter_400Regular' },
+  emptyText: { color: colors.textSubtle, fontSize: 14, fontFamily: 'Inter_400Regular' },
 
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 14,
     borderWidth: 0.5,
-    borderColor: '#1a1a1a',
+    borderColor: colors.surface,
     padding: 12,
     marginBottom: 8,
     gap: 10,
@@ -379,14 +380,14 @@ const styles = StyleSheet.create({
   rowAvatar: { width: 40, height: 40, borderRadius: 20 },
   rowAvatarPlaceholder: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#ff286a',
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   rowAvatarText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
   rowInfo: { flex: 1, gap: 2 },
   rowName: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
-  rowChallenge: { fontSize: 11, fontFamily: 'Inter_400Regular', color: '#666' },
+  rowChallenge: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.textSubtle },
   rowVotes: { alignItems: 'center' },
-  rowVotesNum: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#ff286a' },
-  rowVotesLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: '#555' },
+  rowVotesNum: { fontSize: 16, fontFamily: 'Inter_700Bold', color: colors.primary },
+  rowVotesLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: colors.textSubtle },
 });

@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSnaps } from '../../hooks/useSnaps';
+import { colors } from '../../constants/theme';
 
 export default function SnapsCounter() {
   const { snaps, justEarned } = useSnaps();
@@ -45,7 +46,7 @@ export default function SnapsCounter() {
 
       <Animated.View style={{ transform: [{ scale: bounceAnim }] }}>
         <LinearGradient
-          colors={['#FFD700', '#FFA500']}
+          colors={[colors.gold, colors.warning]}
           style={styles.badge}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   floatText: {
-    color: '#FFD700',
+    color: colors.gold,
     fontSize: 13,
     fontFamily: 'Inter_700Bold',
   },

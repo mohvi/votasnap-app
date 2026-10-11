@@ -4,7 +4,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
   StyleSheet,
@@ -22,8 +21,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFeedEntries } from '../../hooks/useFeedEntries';
 import { auth, db } from '../../services/firebase';
 import { submitVote } from '../../services/voting';
+import { colors, gradients } from '../../constants/theme';
+import { toast } from 'sonner-native';
 
-const { width, height } = Dimensions.get('window');
+const { width, height: windowHeight } = Dimensions.get('window');
 
 export default function FeedScreen() {
   const { allEntries, loading, refresh, userVotes } = useFeedEntries();
@@ -32,6 +33,7 @@ export default function FeedScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(true);
   const [votingId, setVotingId] = useState<string | null>(null);
+  const [feedHeight, setFeedHeight] = useState(windowHeight); // altura real visível (ecrã menos a tab bar)
   const [bannerExpanded, setBannerExpanded] = useState(true); // controla se o banner aparece inteiro ou minimizado
 
   const flatListRef = useRef<FlatList>(null);
@@ -74,10 +76,7 @@ export default function FeedScreen() {
 
     // já votaste noutra participação deste MESMO desafio
     if (!isUnvoting && votedEntryIdForChallenge) {
-      Alert.alert(
-        'Já votaste neste desafio',
-        'Só podes votar numa participação por desafio. Remove o teu voto atual (❤️) se quiseres votar noutra.'
-      );
+      toast.warning('Já votaste neste desafio', { description: 'Só podes votar numa participação por desafio. Remove o teu voto atual (❤️) se quiseres votar noutra.' });
       return;
     }
 
@@ -87,7 +86,7 @@ export default function FeedScreen() {
       await submitVote(entry.challengeId, entry.id, isUnvoting);
     } catch (e) {
       console.error('Erro ao votar:', e);
-      Alert.alert('Erro', 'Não foi possível registar o teu voto. Tenta novamente.');
+      toast.error('Não foi possível registar o teu voto. Tenta novamente.');
     } finally {
       setVotingId(null);
     }
@@ -146,7 +145,7 @@ export default function FeedScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#ff286a" size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -175,7 +174,7 @@ export default function FeedScreen() {
           }}
           activeOpacity={0.85}
         >
-          <LinearGradient colors={['#ff286a', '#ff8c5a']} style={styles.reviewBtnGrad}>
+          <LinearGradient colors={gradients.primary} style={styles.reviewBtnGrad}>
             <Text style={styles.reviewBtnText}>🚀 Participar agora</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -184,7 +183,10 @@ export default function FeedScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={e => setFeedHeight(Math.round(e.nativeEvent.layout.height))}
+    >
       {renderChallengeBanner()}
 
     
@@ -197,13 +199,13 @@ export default function FeedScreen() {
         pagingEnabled
         showsVerticalScrollIndicator={false}
         decelerationRate="fast"
-        snapToInterval={height}
+        snapToInterval={feedHeight}
         snapToAlignment="start"
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         getItemLayout={(_, index) => ({
-          length: height,
-          offset: height * index,
+          length: feedHeight,
+          offset: feedHeight * index,
           index,
         })}
         renderItem={({ item, index: itemIndex }) => {
@@ -213,7 +215,7 @@ export default function FeedScreen() {
           const isActive = isFocused && itemIndex === currentIndex;
 
           return (
-            <View style={{ width, height }}>
+            <View style={{ width, height: feedHeight }}>
               <FeedCard
                 entry={item}
                 isActive={isActive}
@@ -324,12 +326,12 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#ff286a',
+    backgroundColor: colors.primary,
   },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { color: '#fff', fontSize: 22, fontFamily: 'Inter_700Bold', textAlign: 'center' },
-  emptySub: { color: '#888', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22 },
+  emptySub: { color: colors.textMuted, fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22 },
   reviewBtn: { borderRadius: 14, overflow: 'hidden', marginTop: 8, width: '80%' },
-  reviewBtnGrad: { paddingVertical: 16, alignItems: 'center', borderWidth: 0.5, borderColor: '#333', borderRadius: 14 },
+  reviewBtnGrad: { paddingVertical: 16, alignItems: 'center', borderWidth: 0.5, borderColor: colors.borderStrong, borderRadius: 14 },
   reviewBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_500Medium' },
 });

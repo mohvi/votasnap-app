@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors, gradients } from '../../constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -23,7 +24,7 @@ export default function OnboardingModal({ visible, onClose }: Props) {
 
       <View style={styles.logoWrap}>
         <LinearGradient
-          colors={['#ff286a', '#ff8c5a']}
+          colors={gradients.primary}
           style={styles.logoBox}
         >
           <Text style={styles.logoEmoji}>🏆</Text>
@@ -95,7 +96,7 @@ export default function OnboardingModal({ visible, onClose }: Props) {
         style={styles.btnWrap}
       >
         <LinearGradient
-          colors={['#ff286a', '#ff8c5a']}
+          colors={gradients.primary}
           style={styles.btn}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -121,13 +122,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 24,
     padding: 24,
     width: '100%',
     maxWidth: 360,
     borderWidth: 0.5,
-    borderColor: '#222',
+    borderColor: colors.surfaceRaised,
     alignItems: 'center',
   },
   logoWrap: { marginBottom: 16 },
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
   step: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   stepIconWrap: {
     width: 44, height: 44, borderRadius: 12,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
@@ -156,10 +157,10 @@ const styles = StyleSheet.create({
     color: '#fff', fontSize: 14, fontFamily: 'Inter_700Bold',
   },
   stepDesc: {
-    color: '#888', fontSize: 12.5, fontFamily: 'Inter_400Regular', lineHeight: 18,
+    color: colors.textMuted, fontSize: 12.5, fontFamily: 'Inter_400Regular', lineHeight: 18,
   },
   subtitle: {
-  color: '#AAA',
+  color: colors.textSecondary,
   fontSize: 14,
   textAlign: 'center',
   marginBottom: 24,
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
 },
 
 tip: {
-  color: '#ffb347',
+  color: colors.warning,
   fontSize: 13,
   textAlign: 'center',
   marginBottom: 18,

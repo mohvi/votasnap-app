@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Challenge } from '../../hooks/useChallenges';
+import { colors, gradients } from '../../constants/theme';
 
 function TimeLeft({ endsAt }: { endsAt: number }) {
   const diff = endsAt - Date.now();
@@ -32,7 +33,7 @@ export default function ActiveChallengeBanner({ challenge }: { challenge: Challe
         <Image source={{ uri: challenge.coverImage }} style={styles.bgImage} />
       ) : null}
       <LinearGradient
-        colors={['#ff286a', '#ff8c5a']}
+        colors={gradients.primary}
         style={[styles.gradient, challenge.coverImage && styles.gradientOverlay]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   prize: {
-    color: '#FFD700',
+    color: colors.gold,
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
   },

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Linking, ScrollView, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '../constants/theme';
 
 const rules = [
   ['Participação', 'Consulta o tema, o prazo, os critérios de participação e as condições do prémio de cada desafio antes de publicar. Não participes se essas informações não estiverem claras.'],
@@ -12,15 +13,15 @@ const rules = [
 ];
 
 export default function TermsScreen() {
-  return <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D0D', padding: 24 }}>
-    <TouchableOpacity onPress={() => router.back()}><Text style={{ color: '#ff286a', paddingVertical: 16 }}>Voltar</Text></TouchableOpacity>
+  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24 }}>
+    <TouchableOpacity onPress={() => router.back()}><Text style={{ color: colors.primary, paddingVertical: 16 }}>Voltar</Text></TouchableOpacity>
     <ScrollView>
       <Text style={{ color: 'white', fontSize: 26, marginBottom: 24 }}>Termos de participação</Text>
       {rules.map(([title, text]) => <Text key={title} style={{ color: '#ddd', fontSize: 16, lineHeight: 24, marginBottom: 24 }}>
         <Text style={{ fontWeight: 'bold' }}>{title}{'\n'}</Text>{text}
       </Text>)}
-      <TouchableOpacity onPress={() => Linking.openURL('https://votasnap.vercel.app/policy')}><Text style={{ color: '#ff286a', marginBottom: 24 }}>Política de privacidade</Text></TouchableOpacity>
-      <TouchableOpacity onPress={() => Linking.openURL('mailto:geral@votasnap.com')}><Text style={{ color: '#ff286a', marginBottom: 24 }}>Contactar suporte</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => Linking.openURL('https://votasnap.vercel.app/policy')}><Text style={{ color: colors.primary, marginBottom: 24 }}>Política de privacidade</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => Linking.openURL('mailto:geral@votasnap.com')}><Text style={{ color: colors.primary, marginBottom: 24 }}>Contactar suporte</Text></TouchableOpacity>
     </ScrollView>
   </SafeAreaView>;
 }

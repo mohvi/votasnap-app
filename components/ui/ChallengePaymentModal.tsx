@@ -19,6 +19,7 @@ import {
 import { useChallengePayment } from '../../hooks/useChallengePayment';
 import { PaymentResult } from '../../types/payment.types';
 import { Challenge } from '../../hooks/useChallenges';
+import { colors, gradients } from '../../constants/theme';
 
 
 
@@ -62,7 +63,7 @@ export function ChallengePaymentModal({
       <Modal visible={visible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <ActivityIndicator size="large" color="#7C3AED" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingTitle}>Processando Pagamento</Text>
             <Text style={styles.loadingSubtitle}>
               Aguarde enquanto processamos seu pagamento...
@@ -80,7 +81,7 @@ export function ChallengePaymentModal({
         <View style={styles.modalOverlay}>
           <View style={styles.successContent}>
             <View style={styles.successIcon}>
-              <Ionicons name="checkmark-circle" size={40} color="#10B981" />
+              <Ionicons name="checkmark-circle" size={40} color={colors.success} />
             </View>
             <Text style={styles.successTitle}>Pagamento Confirmado!</Text>
             <Text style={styles.successSubtitle}>
@@ -138,7 +139,7 @@ export function ChallengePaymentModal({
                   disabled={loading}
                   style={styles.closeButton}
                 >
-                  <Ionicons name="close" size={24} color="#6B6B85" />
+                  <Ionicons name="close" size={24} color={colors.textSubtle} />
                 </TouchableOpacity>
               </View>
 
@@ -156,7 +157,7 @@ export function ChallengePaymentModal({
                 </View>
                 {challenge?.type === 'paid' && (
                   <View style={styles.paidBadge}>
-                    <Ionicons name="alert-circle" size={14} color="#F59E0B" />
+                    <Ionicons name="alert-circle" size={14} color={colors.warning} />
                     <Text style={styles.paidBadgeText}>
                       Pagamento único por desafio
                     </Text>
@@ -178,7 +179,7 @@ export function ChallengePaymentModal({
                       value={phoneInput}
                       onChangeText={setPhoneInput}
                       placeholder="840000000"
-                      placeholderTextColor="#6B6B85"
+                      placeholderTextColor={colors.textSubtle}
                       keyboardType="phone-pad"
                       style={styles.phoneInput}
                     />
@@ -207,7 +208,7 @@ export function ChallengePaymentModal({
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={['#7C3AED', '#DB2777']}
+                  colors={gradients.primary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.payButton}
@@ -224,7 +225,7 @@ export function ChallengePaymentModal({
               {/* Mensagem de erro */}
               {error && (
                 <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={18} color="#EF4444" />
+                  <Ionicons name="alert-circle" size={18} color={colors.danger} />
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 32,
     width: '90%',
@@ -264,13 +265,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   loadingSubtitle: {
-    color: '#6B6B85',
+    color: colors.textSubtle,
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
   },
   successContent: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 32,
     width: '90%',
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   successSubtitle: {
-    color: '#6B6B85',
+    color: colors.textSubtle,
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
@@ -305,20 +306,20 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   paymentInfoText: {
-    color: '#6B6B85',
+    color: colors.textSubtle,
     fontSize: 12,
   },
   paymentInfoValue: {
-    color: '#7C3AED',
+    color: colors.primary,
   },
   paymentInfoAmount: {
-    color: '#10B981',
+    color: colors.success,
   },
   continueButton: {
     marginTop: 24,
     width: '100%',
     paddingVertical: 12,
-    backgroundColor: '#7C3AED',
+    backgroundColor: colors.primary,
     borderRadius: 12,
   },
   continueButtonText: {
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#0A0A12',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   handleBar: {
     width: 40,
     height: 4,
-    backgroundColor: '#333',
+    backgroundColor: colors.borderStrong,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -364,7 +365,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   challengeInfo: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -375,7 +376,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   infoLabel: {
-    color: '#6B6B85',
+    color: colors.textSubtle,
     fontSize: 14,
   },
   infoValue: {
@@ -405,14 +406,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   phoneInputLabel: {
-    color: '#6B6B85',
+    color: colors.textSubtle,
     fontSize: 14,
     marginBottom: 8,
   },
   phoneInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A2E',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 12,
@@ -424,7 +425,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   phonePrefixText: {
-    color: '#6B6B85',
+    color: colors.textSubtle,
   },
   phoneInput: {
     flex: 1,
@@ -434,7 +435,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   phoneInputHint: {
-    color: '#4A4A62',
+    color: colors.textSubtle,
     fontSize: 12,
     marginTop: 4,
   },
@@ -442,7 +443,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   changePhoneText: {
-    color: '#7C3AED',
+    color: colors.primary,
     fontSize: 14,
   },
   payButton: {
@@ -472,12 +473,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   errorText: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 14,
     flex: 1,
   },
   termsText: {
-    color: '#4A4A62',
+    color: colors.textSubtle,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 16,

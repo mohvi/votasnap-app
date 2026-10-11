@@ -3,6 +3,12 @@
     "name": "VotaSnap",
     "slug": "votasnap",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/75a5381a-a892-4dae-ac00-7314b8c84966"
+    },
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icons/icon.png",

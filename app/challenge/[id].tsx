@@ -17,6 +17,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Challenge } from '../../hooks/useChallenges';
 import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
+import { colors, gradients } from '../../constants/theme';
 
 interface Entry {
   id: string;
@@ -35,10 +36,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
   arte: '🎨', humor: '😂',
 };
 
-const TYPE_COLORS: Record<string, [string, string]> = {
-  sponsored: ['#ff286a', '#ff8c5a'],
-  paid: ['#7C3AED', '#A855F7'],
-  free: ['#0F766E', '#14B8A6'],
+const TYPE_COLORS: Record<string, readonly [string, string]> = {
+  sponsored: gradients.primary,
+  paid: gradients.paid,
+  free: gradients.free,
 };
 
 function TimeLeft({ endsAt }: { endsAt: number }) {
@@ -106,7 +107,7 @@ export default function ChallengeDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#ff286a" size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -187,7 +188,7 @@ export default function ChallengeDetailScreen() {
             </View>
           </View>
         ) : (
-          <LinearGradient colors={['#1a1a1a', '#0a0a0a']} style={styles.banner}>
+          <LinearGradient colors={[colors.surface, colors.background]} style={styles.banner}>
             <Text style={styles.bannerEmoji}>{emoji}</Text>
 
             <View style={styles.badges}>
@@ -386,7 +387,7 @@ export default function ChallengeDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   center: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  errorText: { color: '#ef4444', fontSize: 16, fontFamily: 'Inter_500Medium' },
+  errorText: { color: colors.danger, fontSize: 16, fontFamily: 'Inter_500Medium' },
 
   header: {
     flexDirection: 'row',
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: colors.surface,
   },
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   backText: { color: '#fff', fontSize: 22, fontFamily: 'Inter_400Regular' },
@@ -452,28 +453,28 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 10,
   },
-  prizeText: { color: '#FFD700', fontSize: 13, fontFamily: 'Inter_700Bold' },
+  prizeText: { color: colors.gold, fontSize: 13, fontFamily: 'Inter_700Bold' },
 
   info: { padding: 16, gap: 12 },
   title: { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#fff', lineHeight: 28 },
-  description: { fontSize: 14, fontFamily: 'Inter_400Regular', color: '#888', lineHeight: 20 },
+  description: { fontSize: 14, fontFamily: 'Inter_400Regular', color: colors.textMuted, lineHeight: 20 },
 
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 14,
     borderWidth: 0.5,
-    borderColor: '#222',
+    borderColor: colors.surfaceRaised,
     overflow: 'hidden',
   },
   statBox: {
     flex: 1, alignItems: 'center', paddingVertical: 14,
-    borderRightWidth: 0.5, borderRightColor: '#222',
+    borderRightWidth: 0.5, borderRightColor: colors.surfaceRaised,
   },
   statNum: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#fff' },
-  statLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: '#555', marginTop: 2 },
-  timeLeft: { fontSize: 13, fontFamily: 'Inter_500Medium', color: '#ff286a' },
-  timeOver: { fontSize: 13, fontFamily: 'Inter_500Medium', color: '#ef4444' },
+  statLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: colors.textSubtle, marginTop: 2 },
+  timeLeft: { fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.primary },
+  timeOver: { fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.danger },
 
   actions: { gap: 10 },
   btnWrap: { borderRadius: 12, overflow: 'hidden' },
@@ -481,32 +482,32 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
   enteredBadge: {
     backgroundColor: 'rgba(34,197,94,0.1)',
-    borderWidth: 0.5, borderColor: '#22c55e',
+    borderWidth: 0.5, borderColor: colors.success,
     borderRadius: 12, paddingVertical: 14, alignItems: 'center',
   },
-  enteredText: { color: '#22c55e', fontSize: 14, fontFamily: 'Inter_500Medium' },
+  enteredText: { color: colors.success, fontSize: 14, fontFamily: 'Inter_500Medium' },
 
   section: { paddingHorizontal: 16, paddingTop: 8 },
   sectionTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#fff', marginBottom: 12 },
 
   emptyEntries: { alignItems: 'center', paddingVertical: 40, gap: 8 },
   emptyEmoji: { fontSize: 40 },
-  emptyText: { color: '#555', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  emptyText: { color: colors.textSubtle, fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
 
   entryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 14,
     borderWidth: 0.5,
-    borderColor: '#222',
+    borderColor: colors.surfaceRaised,
     padding: 12,
     marginBottom: 10,
     gap: 10,
   },
   rank: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center',
   },
   rank1: { backgroundColor: 'rgba(255,215,0,0.15)' },
@@ -517,21 +518,21 @@ const styles = StyleSheet.create({
   avatar: { width: 42, height: 42, borderRadius: 21 },
   avatarPlaceholder: {
     width: 42, height: 42, borderRadius: 21,
-    backgroundColor: '#ff286a',
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   avatarText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
 
   entryInfo: { flex: 1, gap: 3 },
   entryName: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
-  entryCaption: { fontSize: 12, fontFamily: 'Inter_400Regular', color: '#666' },
+  entryCaption: { fontSize: 12, fontFamily: 'Inter_400Regular', color: colors.textSubtle },
   voteBarWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   voteBar: {
-    flex: 1, height: 4, backgroundColor: '#222',
+    flex: 1, height: 4, backgroundColor: colors.surfaceRaised,
     borderRadius: 2, overflow: 'hidden',
   },
   voteBarFill: { height: '100%', borderRadius: 2 },
-  voteCount: { fontSize: 11, fontFamily: 'Inter_400Regular', color: '#555', minWidth: 50 },
+  voteCount: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.textSubtle, minWidth: 50 },
 
   voteBtn: { borderRadius: 8, overflow: 'hidden' },
   voteBtnGrad: { paddingHorizontal: 14, paddingVertical: 8 },
@@ -542,5 +543,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34,197,94,0.15)',
     alignItems: 'center', justifyContent: 'center',
   },
-  votedText: { color: '#22c55e', fontSize: 16 },
+  votedText: { color: colors.success, fontSize: 16 },
 });

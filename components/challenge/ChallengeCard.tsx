@@ -7,6 +7,7 @@ import {
   View
 } from 'react-native';
 import { Challenge } from '../../hooks/useChallenges';
+import { colors, gradients } from '../../constants/theme';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   fotografia: '📸',
@@ -19,10 +20,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
   humor: '😂',
 };
 
-const TYPE_COLORS: Record<string, [string, string]> = {
-  sponsored: ['#ff286a', '#ff8c5a'],
-  paid: ['#7C3AED', '#A855F7'],
-  free: ['#0F766E', '#14B8A6'],
+const TYPE_COLORS: Record<string, readonly [string, string]> = {
+  sponsored: gradients.primary,
+  paid: gradients.paid,
+  free: gradients.free,
 };
 
 function TimeLeft({ endsAt }: { endsAt: number }) {
@@ -91,7 +92,7 @@ export default function ChallengeCard({ challenge }: { challenge: Challenge }) {
         </View>
       ) : (
         <LinearGradient
-          colors={['#1a1a1a', '#0a0a0a']}
+          colors={[colors.surface, colors.background]}
           style={styles.banner}
         >
           <Text style={styles.bannerEmoji}>{emoji}</Text>
@@ -171,11 +172,11 @@ export default function ChallengeCard({ challenge }: { challenge: Challenge }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 0.5,
-    borderColor: '#222',
+    borderColor: colors.surfaceRaised,
     marginBottom: 16,
   },
   banner: {
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   prizeText: {
-    color: '#FFD700',
+    color: colors.gold,
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
   },
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: '#888',
+    color: colors.textMuted,
     lineHeight: 18,
   },
   footer: {
@@ -277,22 +278,22 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 10,
     fontFamily: 'Inter_400Regular',
-    color: '#555',
+    color: colors.textSubtle,
   },
   statDivider: {
     width: 1,
     height: 24,
-    backgroundColor: '#2a2a2a',
+    backgroundColor: colors.border,
   },
   time: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    color: '#888',
+    color: colors.textMuted,
   },
   timeOver: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-    color: '#ef4444',
+    color: colors.danger,
   },
   btn: {
     paddingVertical: 12,

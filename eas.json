@@ -13,6 +13,10 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAYQQyKE0RWAjjZbzHPcDRtiHi8jrjqoJA",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "votasnap.firebaseapp.com",
@@ -29,6 +33,10 @@
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAYQQyKE0RWAjjZbzHPcDRtiHi8jrjqoJA",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "votasnap.firebaseapp.com",

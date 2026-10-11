@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { colors, gradients } from '../../constants/theme';
 
 interface Props {
   visible: boolean;
@@ -68,7 +69,7 @@ export default function AuthPrompt({ visible, onClose, action = 'default' }: Pro
             style={styles.registerWrap}
           >
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.registerBtn}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -115,11 +116,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderTopWidth: 0.5,
-    borderColor: '#222',
+    borderColor: colors.surfaceRaised,
   },
   handle: {
     width: 40, height: 4,
-    backgroundColor: '#333',
+    backgroundColor: colors.borderStrong,
     borderRadius: 2,
     marginBottom: 8,
   },
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
   sub: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: '#888',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 8,
@@ -154,9 +155,9 @@ const styles = StyleSheet.create({
   },
   loginBtn: {
     width: '100%',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderWidth: 0.5,
-    borderColor: '#333',
+    borderColor: colors.borderStrong,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   skipText: {
-    color: '#555',
+    color: colors.textSubtle,
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
   },

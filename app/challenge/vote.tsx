@@ -5,13 +5,14 @@ import { submitVote } from '../../services/voting';
 import { useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     StyleSheet,
     Text, TouchableOpacity,
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../../services/firebase';
+import { colors, gradients } from '../../constants/theme';
+import { toast } from 'sonner-native';
 
 export default function VoteScreen() {
   const { challengeId, entryId, userName } = useLocalSearchParams<{
@@ -25,7 +26,7 @@ export default function VoteScreen() {
   const uid = auth.currentUser?.uid;
 
   const handleVote = async () => {
-    if (!uid) { Alert.alert('Erro', 'Sessão expirada'); return; }
+    if (!uid) { toast.error('Sessão expirada'); return; }
     setLoading(true);
     try {
       await submitVote(challengeId, entryId);
@@ -35,7 +36,7 @@ export default function VoteScreen() {
 
       setVoted(true);
     } catch (e: any) {
-      Alert.alert('Erro', e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }
@@ -58,7 +59,7 @@ export default function VoteScreen() {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.backBtnGrad}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -88,7 +89,7 @@ export default function VoteScreen() {
         {/* Card do participante */}
         <View style={styles.card}>
           <LinearGradient
-            colors={['#1a1a1a', '#0a0a0a']}
+            colors={[colors.surface, colors.background]}
             style={styles.cardBanner}
           >
             <Text style={styles.cardEmoji}>🎯</Text>
@@ -125,7 +126,7 @@ export default function VoteScreen() {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.voteBtn}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: colors.surface,
   },
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   backText: { color: '#fff', fontSize: 22 },
@@ -167,10 +168,10 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 20,
     borderWidth: 0.5,
-    borderColor: '#222',
+    borderColor: colors.surfaceRaised,
     overflow: 'hidden',
   },
   cardBanner: {
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardQuestion: {
-    color: '#888',
+    color: colors.textMuted,
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   cardWarning: {
-    color: '#555',
+    color: colors.textSubtle,
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
@@ -210,15 +211,15 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: 'center',
   },
   cancelText: {
-    color: '#888',
+    color: colors.textMuted,
     fontSize: 16,
     fontFamily: 'Inter_500Medium',
   },
@@ -254,14 +255,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   successSub: {
-    color: '#888',
+    color: colors.textMuted,
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
     lineHeight: 22,
   },
   successName: {
-    color: '#ff286a',
+    color: colors.primary,
     fontFamily: 'Inter_700Bold',
   },
   backBtnWrap: {

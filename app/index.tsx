@@ -4,6 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect } from 'react';
 import { Animated, Image, StyleSheet, Text } from 'react-native';
 import { auth } from '../services/firebase';
+import { colors, gradients } from '../constants/theme';
 const logo = require('../assets/images/logo.png');
 
 export default function SplashScreenPage() {
@@ -44,12 +45,12 @@ export default function SplashScreenPage() {
 
   return (
     <LinearGradient
-      colors={['#0D0D0D', '#1A0A2E', '#0D0D0D']}
+      colors={[colors.background, '#1A0A2E', colors.background]}
       style={styles.container}
     >
       <Animated.View style={[styles.logoWrap, { opacity, transform: [{ scale }] }]}>
         <LinearGradient
-          colors={['#ff286a', '#ff8c5a']}
+          colors={gradients.primary}
           style={styles.logoBox}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0D0D0D',
+    backgroundColor: colors.background,
   },
   logoWrap: {
     alignItems: 'center',
@@ -95,6 +96,6 @@ const styles = StyleSheet.create({
   logoSub: {
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: '#888',
+    color: colors.textMuted,
   },
 });

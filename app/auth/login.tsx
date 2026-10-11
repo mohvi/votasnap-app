@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { resendCode, sendCode, verifyCode } from '../../services/auth';
+import { colors, gradients } from '../../constants/theme';
 const logo = require('../../assets/images/logo.png');
 
 
@@ -103,7 +104,7 @@ export default function LoginScreen() {
         <View style={styles.logoSection}>
           <View style={styles.logoWrap}>
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.logoBox}
               start={{ x: 0, y: 1 }}
               end={{ x: 1, y: 0 }}
@@ -122,7 +123,7 @@ export default function LoginScreen() {
         {/* Card */}
         <View style={styles.card}>
           <LinearGradient
-            colors={['#ff286a', '#ff8c5a']}
+            colors={gradients.primary}
             style={styles.cardHeader}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -155,7 +156,7 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.phoneInput}
                     placeholder="84 123 4567"
-                    placeholderTextColor="#555"
+                    placeholderTextColor={colors.textSubtle}
                     keyboardType="phone-pad"
                     value={formatDisplay(phone)}
                     onChangeText={t => setPhone(t.replace(/\D/g, ''))}
@@ -171,7 +172,7 @@ export default function LoginScreen() {
                   style={[styles.btnWrap, !isValidPhone(phone) && styles.btnDisabled]}
                 >
                   <LinearGradient
-                    colors={['#ff286a', '#ff8c5a']}
+                    colors={gradients.primary}
                     style={styles.btn}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
@@ -209,7 +210,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={styles.codeInput}
                   placeholder="000000"
-                  placeholderTextColor="#555"
+                  placeholderTextColor={colors.textSubtle}
                   keyboardType="number-pad"
                   value={code}
                   onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, 6))}
@@ -226,7 +227,7 @@ export default function LoginScreen() {
                   style={[styles.btnWrap, code.length < 6 && styles.btnDisabled]}
                 >
                   <LinearGradient
-                    colors={['#ff286a', '#ff8c5a']}
+                    colors={gradients.primary}
                     style={styles.btn}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
@@ -265,31 +266,31 @@ const styles = StyleSheet.create({
   logoEmoji: { width: 225, height: 225, resizeMode: 'contain' },
   logoDot: { position: 'absolute', bottom: -4, right: -4, width: 22, height: 22, borderRadius: 11, backgroundColor: '#3b82f6', borderWidth: 2, borderColor: '#000' },
   appName: { fontSize: 36, fontFamily: 'Inter_700Bold', color: '#fff', letterSpacing: -0.5 },
-  appSlogan: { fontSize: 13, color: '#888', fontFamily: 'Inter_400Regular', letterSpacing: 0.5 },
-  card: { width: '100%', backgroundColor: '#1a1a1a', borderRadius: 20, overflow: 'hidden', borderWidth: 0.5, borderColor: '#2a2a2a' },
+  appSlogan: { fontSize: 13, color: colors.textMuted, fontFamily: 'Inter_400Regular', letterSpacing: 0.5 },
+  card: { width: '100%', backgroundColor: colors.surface, borderRadius: 20, overflow: 'hidden', borderWidth: 0.5, borderColor: colors.border },
   cardHeader: { paddingHorizontal: 24, paddingVertical: 18 },
   cardHeaderTitle: { color: '#fff', fontSize: 18, fontFamily: 'Inter_700Bold' },
   cardHeaderSub: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 4 },
   cardBody: { padding: 24, gap: 12 },
-  errorBox: { backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 0.5, borderColor: '#ef4444', borderRadius: 10, padding: 12 },
-  errorText: { color: '#ef4444', fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center' },
-  phoneInputWrap: { flexDirection: 'row', backgroundColor: '#2a2a2a', borderRadius: 14, borderWidth: 0.5, borderColor: '#3a3a3a', overflow: 'hidden' },
-  phonePrefix: { paddingHorizontal: 16, justifyContent: 'center', borderRightWidth: 0.5, borderRightColor: '#3a3a3a' },
-  phonePrefixText: { color: '#888', fontFamily: 'Inter_500Medium', fontSize: 15 },
+  errorBox: { backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 0.5, borderColor: colors.danger, borderRadius: 10, padding: 12 },
+  errorText: { color: colors.danger, fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  phoneInputWrap: { flexDirection: 'row', backgroundColor: colors.border, borderRadius: 14, borderWidth: 0.5, borderColor: colors.borderStrong, overflow: 'hidden' },
+  phonePrefix: { paddingHorizontal: 16, justifyContent: 'center', borderRightWidth: 0.5, borderRightColor: colors.borderStrong },
+  phonePrefixText: { color: colors.textMuted, fontFamily: 'Inter_500Medium', fontSize: 15 },
   phoneInput: { flex: 1, paddingHorizontal: 16, paddingVertical: 18, color: '#fff', fontFamily: 'Inter_400Regular', fontSize: 17 },
   btnWrap: { borderRadius: 14, overflow: 'hidden' },
   btnDisabled: { opacity: 0.4 },
   btn: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
   btnText: { color: '#fff', fontSize: 17, fontFamily: 'Inter_700Bold' },
-  terms: { textAlign: 'center', fontSize: 12, color: '#555', fontFamily: 'Inter_400Regular' },
-  termsLink: { color: '#ff286a' },
+  terms: { textAlign: 'center', fontSize: 12, color: colors.textSubtle, fontFamily: 'Inter_400Regular' },
+  termsLink: { color: colors.primary },
   backBtn: { marginBottom: 4 },
-  backText: { color: '#ff286a', fontFamily: 'Inter_500Medium', fontSize: 14 },
+  backText: { color: colors.primary, fontFamily: 'Inter_500Medium', fontSize: 14 },
   dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 8 },
-  dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#2a2a2a', borderWidth: 1, borderColor: '#3a3a3a' },
-  dotFilled: { backgroundColor: '#ff286a', borderColor: '#ff286a' },
-  codeInput: { backgroundColor: '#2a2a2a', borderRadius: 14, borderWidth: 0.5, borderColor: '#3a3a3a', paddingVertical: 20, color: '#fff', fontSize: 28, fontFamily: 'Inter_700Bold', letterSpacing: 14 },
-  resendTimer: { textAlign: 'center', color: '#555', fontSize: 13, fontFamily: 'Inter_400Regular' },
-  resendLink: { textAlign: 'center', color: '#ff286a', fontSize: 14, fontFamily: 'Inter_500Medium' },
-  footer: { marginTop: 24, color: '#333', fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border, borderWidth: 1, borderColor: colors.borderStrong },
+  dotFilled: { backgroundColor: colors.primary, borderColor: colors.primary },
+  codeInput: { backgroundColor: colors.border, borderRadius: 14, borderWidth: 0.5, borderColor: colors.borderStrong, paddingVertical: 20, color: '#fff', fontSize: 28, fontFamily: 'Inter_700Bold', letterSpacing: 14 },
+  resendTimer: { textAlign: 'center', color: colors.textSubtle, fontSize: 13, fontFamily: 'Inter_400Regular' },
+  resendLink: { textAlign: 'center', color: colors.primary, fontSize: 14, fontFamily: 'Inter_500Medium' },
+  footer: { marginTop: 24, color: colors.borderStrong, fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center' },
 });

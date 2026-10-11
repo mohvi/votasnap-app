@@ -18,6 +18,7 @@ import {
 import { authenticatedRequest } from '../../services/api';
 import provinces from '../../hooks/useProvinces';
 import { auth, db, storage } from '../../services/firebase';
+import { colors, gradients } from '../../constants/theme';
 
 
 export default function SetupProfileScreen() {
@@ -232,7 +233,7 @@ export default function SetupProfileScreen() {
   const getUsernameStatusIcon = () => {
     switch (usernameStatus) {
       case 'checking':
-        return <ActivityIndicator size="small" color="#ff286a" />;
+        return <ActivityIndicator size="small" color={colors.primary} />;
       case 'available':
         return <Text style={styles.statusAvailable}>✓</Text>;
       case 'taken':
@@ -292,7 +293,7 @@ export default function SetupProfileScreen() {
             <Image source={{ uri: avatar }} style={styles.avatar} />
           ) : (
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.avatarPlaceholder}
               start={{ x: 0, y: 1 }}
               end={{ x: 1, y: 0 }}
@@ -331,7 +332,7 @@ export default function SetupProfileScreen() {
             <TextInput
               style={styles.input}
               placeholder="Ex: Ana Machava"
-              placeholderTextColor="#555"
+              placeholderTextColor={colors.textSubtle}
               value={name}
               onChangeText={setName}
               editable={!isSaving}
@@ -349,7 +350,7 @@ export default function SetupProfileScreen() {
               <TextInput
                 style={styles.usernameInput}
                 placeholder="ana.machava"
-                placeholderTextColor="#555"
+                placeholderTextColor={colors.textSubtle}
                 value={username}
                 onChangeText={t => {
                   const cleaned = t.toLowerCase().replace(/[^a-z0-9_.]/g, '');
@@ -392,7 +393,7 @@ export default function SetupProfileScreen() {
                 selectedValue={province}
                 onValueChange={(itemValue) => setProvince(itemValue)}
                 style={styles.picker}
-                dropdownIconColor="#ff286a"
+                dropdownIconColor={colors.primary}
                 enabled={!isSaving}
               >
                 <Picker.Item label="Selecciona uma província..." value="" />
@@ -410,7 +411,7 @@ export default function SetupProfileScreen() {
                 selectedValue={city}
                 onValueChange={(itemValue) => setCity(itemValue)}
                 style={styles.picker}
-                dropdownIconColor="#ff286a"
+                dropdownIconColor={colors.primary}
                 enabled={!!province && !isSaving}
               >
                 <Picker.Item
@@ -430,7 +431,7 @@ export default function SetupProfileScreen() {
             <TextInput
               style={[styles.input, styles.bioInput]}
               placeholder="Conta algo sobre ti..."
-              placeholderTextColor="#555"
+              placeholderTextColor={colors.textSubtle}
               value={bio}
               onChangeText={setBio}
               editable={!isSaving}
@@ -453,7 +454,7 @@ export default function SetupProfileScreen() {
             ]}
           >
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.btn}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -527,7 +528,7 @@ const styles = StyleSheet.create({
   },
   step: {
     fontSize: 12,
-    color: '#ff286a',
+    color: colors.primary,
     fontFamily: 'Inter_500Medium',
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -542,7 +543,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: '#888',
+    color: colors.textMuted,
     lineHeight: 20,
   },
 
@@ -557,7 +558,7 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 2,
-    borderColor: '#ff286a',
+    borderColor: colors.primary,
   },
   avatarPlaceholder: {
     width: 100,
@@ -576,7 +577,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#ff286a',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -598,7 +599,7 @@ const styles = StyleSheet.create({
   },
   avatarHint: {
     textAlign: 'center',
-    color: '#555',
+    color: colors.textSubtle,
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     marginBottom: 32,
@@ -614,20 +615,20 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
-    color: '#aaa',
+    color: colors.textSecondary,
   },
   required: {
-    color: '#ff286a',
+    color: colors.primary,
   },
   optional: {
-    color: '#555',
+    color: colors.textSubtle,
     fontFamily: 'Inter_400Regular',
   },
   input: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
+    borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 16,
     color: '#fff',
@@ -641,33 +642,33 @@ const styles = StyleSheet.create({
   counter: {
     textAlign: 'right',
     fontSize: 11,
-    color: '#555',
+    color: colors.textSubtle,
     fontFamily: 'Inter_400Regular',
   },
   hint: {
     fontSize: 11,
-    color: '#555',
+    color: colors.textSubtle,
     fontFamily: 'Inter_400Regular',
   },
 
   // Username
   usernameWrap: {
     flexDirection: 'row',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
+    borderColor: colors.border,
     overflow: 'hidden',
     alignItems: 'center',
   },
   usernamePrefix: {
     paddingHorizontal: 14,
     borderRightWidth: 0.5,
-    borderRightColor: '#2a2a2a',
+    borderRightColor: colors.border,
     paddingVertical: 16,
   },
   usernamePrefixText: {
-    color: '#ff286a',
+    color: colors.primary,
     fontFamily: 'Inter_700Bold',
     fontSize: 16,
   },
@@ -684,52 +685,52 @@ const styles = StyleSheet.create({
   },
   statusAvailable: {
     fontSize: 18,
-    color: '#22c55e',
+    color: colors.success,
   },
   statusTaken: {
     fontSize: 18,
-    color: '#ef4444',
+    color: colors.danger,
   },
   statusText: {
     fontSize: 12,
     marginTop: 4,
   },
   statusTextAvailable: {
-    color: '#22c55e',
+    color: colors.success,
   },
   statusTextTaken: {
-    color: '#ef4444',
+    color: colors.danger,
   },
   statusTextInvalid: {
-    color: '#ef4444',
+    color: colors.danger,
   },
   statusTextChecking: {
-    color: '#ff286a',
+    color: colors.primary,
   },
 
   // Picker
   pickerWrap: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   picker: {
     color: '#fff',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
   },
 
   // Erro
   errorBox: {
     backgroundColor: 'rgba(239,68,68,0.1)',
     borderWidth: 0.5,
-    borderColor: '#ef4444',
+    borderColor: colors.danger,
     borderRadius: 10,
     padding: 12,
   },
   errorText: {
-    color: '#ef4444',
+    color: colors.danger,
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
@@ -763,13 +764,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 24,
     width: '80%',
     maxWidth: 320,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
+    borderColor: colors.border,
   },
   modalHeader: {
     alignItems: 'center',
@@ -787,7 +788,7 @@ const styles = StyleSheet.create({
   modalText: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: '#aaa',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 20,
@@ -803,13 +804,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalButtonCancel: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: colors.border,
   },
   modalButtonConfirm: {
-    backgroundColor: '#ff286a',
+    backgroundColor: colors.primary,
   },
   modalButtonTextCancel: {
-    color: '#aaa',
+    color: colors.textSecondary,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
   },

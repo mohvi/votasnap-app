@@ -16,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { VideoPlayer } from '../../../components/feed/FeedCard';
 import { auth, db } from '../../../services/firebase';
+import { colors, gradients } from '../../../constants/theme';
+import { toast } from 'sonner-native';
 
 interface Entry {
   userId: string;
@@ -100,18 +102,18 @@ export default function EntryDeepLinkScreen() {
       return;
     }
 
-    if (hasVoted) { Alert.alert('Já votaste', 'Já votaste neste desafio!'); return; }
-    if (isEnded) { Alert.alert('Desafio encerrado', 'Este desafio já terminou.'); return; }
-    if (entry?.userId === uid) { Alert.alert('Atenção', 'Não podes votar na tua própria entrada.'); return; }
+    if (hasVoted) { toast.warning('Já votaste', { description: 'Já votaste neste desafio!' }); return; }
+    if (isEnded) { toast.info('Desafio encerrado', { description: 'Este desafio já terminou.' }); return; }
+    if (entry?.userId === uid) { toast.warning('Não podes votar na tua própria entrada.'); return; }
 
     setVoting(true);
     try {
       await submitVote(challengeId, entryId);
       setHasVoted(true);
       setEntry(prev => prev ? { ...prev, votes: prev.votes + 1 } : prev);
-      Alert.alert('Votado! 🗳️', `Votaste em ${user?.name}!`);
+      toast.success('Votado! 🗳️', { description: `Votaste em ${user?.name}!` });
     } catch (e: any) {
-      Alert.alert('Erro', e.message);
+      toast.error(e.message);
     } finally {
       setVoting(false);
     }
@@ -120,7 +122,7 @@ export default function EntryDeepLinkScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#ff286a" size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -137,7 +139,7 @@ export default function EntryDeepLinkScreen() {
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={['#ff286a', '#ff8c5a']}
+            colors={gradients.primary}
             style={styles.homeBtn}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -184,7 +186,7 @@ export default function EntryDeepLinkScreen() {
 
         {/* Desafio badge */}
         <LinearGradient
-          colors={['#ff286a', '#ff8c5a']}
+          colors={gradients.primary}
           style={styles.challengeBadge}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -234,7 +236,7 @@ export default function EntryDeepLinkScreen() {
             style={styles.voteBtnWrap}
           >
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.voteBtn}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -274,7 +276,7 @@ const styles = StyleSheet.create({
   },
   errorEmoji: { fontSize: 56 },
   errorTitle: { color: '#fff', fontSize: 20, fontFamily: 'Inter_700Bold', textAlign: 'center' },
-  errorSub: { color: '#888', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  errorSub: { color: colors.textMuted, fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
   homeWrap: { borderRadius: 12, overflow: 'hidden', marginTop: 8, width: '80%' },
   homeBtn: { paddingVertical: 14, alignItems: 'center' },
   homeBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_700Bold' },
@@ -286,7 +288,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: colors.surface,
   },
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   backText: { color: '#fff', fontSize: 22 },
@@ -297,7 +299,7 @@ const styles = StyleSheet.create({
 
   mediaWrap: {
     height: 320,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -321,37 +323,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold', flex: 1,
   },
   challengePrize: {
-    color: '#FFD700', fontSize: 12,
+    color: colors.gold, fontSize: 12,
     fontFamily: 'Inter_700Bold', marginLeft: 8,
   },
 
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: '#ff286a' },
+  avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: colors.primary },
   avatarPlaceholder: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#ff286a',
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   avatarText: { color: '#fff', fontSize: 18, fontFamily: 'Inter_700Bold' },
   userInfo: { gap: 2 },
   userName: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
-  votes: { color: '#888', fontSize: 12, fontFamily: 'Inter_400Regular' },
+  votes: { color: colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' },
   caption: {
-    color: '#aaa', fontSize: 14,
+    color: colors.textSecondary, fontSize: 14,
     fontFamily: 'Inter_400Regular', lineHeight: 20,
   },
 
   endedBox: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderRadius: 12, padding: 14, alignItems: 'center',
   },
-  endedText: { color: '#555', fontSize: 14, fontFamily: 'Inter_500Medium' },
+  endedText: { color: colors.textSubtle, fontSize: 14, fontFamily: 'Inter_500Medium' },
   votedBox: {
     backgroundColor: 'rgba(34,197,94,0.1)',
-    borderWidth: 0.5, borderColor: '#22c55e',
+    borderWidth: 0.5, borderColor: colors.success,
     borderRadius: 12, padding: 14, alignItems: 'center',
   },
-  votedText: { color: '#22c55e', fontSize: 14, fontFamily: 'Inter_500Medium' },
+  votedText: { color: colors.success, fontSize: 14, fontFamily: 'Inter_500Medium' },
   voteBtnWrap: { borderRadius: 12, overflow: 'hidden' },
   voteBtn: { paddingVertical: 16, alignItems: 'center' },
   voteBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
@@ -360,6 +362,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', paddingVertical: 8,
   },
   seeAllText: {
-    color: '#ff286a', fontSize: 14, fontFamily: 'Inter_500Medium',
+    color: colors.primary, fontSize: 14, fontFamily: 'Inter_500Medium',
   },
 });

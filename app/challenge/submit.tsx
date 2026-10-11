@@ -26,6 +26,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authenticatedRequest } from '../../services/api';
 import { useChallengePayment } from '../../hooks/useChallengePayment';
 import { auth, db, storage } from '../../services/firebase';
+import { colors, gradients } from '../../constants/theme';
+import { toast } from 'sonner-native';
 
 // ============================================================
 // TIPOS
@@ -180,7 +182,7 @@ export default function SubmitScreen() {
   const pickPhotoFromGallery = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para escolher uma foto.');
+      toast.warning('Permissão necessária', { description: 'Precisamos de acesso à galeria para escolher uma foto.' });
       return;
     }
     
@@ -201,7 +203,7 @@ export default function SubmitScreen() {
   const pickVideoFromGallery = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para escolher um vídeo.');
+      toast.warning('Permissão necessária', { description: 'Precisamos de acesso à galeria para escolher um vídeo.' });
       return;
     }
     
@@ -221,7 +223,7 @@ export default function SubmitScreen() {
   const captureFromCamera = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à câmara para tirar uma foto.');
+      toast.warning('Permissão necessária', { description: 'Precisamos de acesso à câmara para tirar uma foto.' });
       return;
     }
 
@@ -326,7 +328,7 @@ export default function SubmitScreen() {
   // ============================================================
   const performSubmission = useCallback(async (): Promise<boolean> => {
     if (!media || !caption.trim() || !uid || !id) {
-      Alert.alert('Atenção', 'Preencha todos os campos.');
+      toast.warning('Preencha todos os campos.');
       return false;
     }
 
@@ -371,10 +373,7 @@ export default function SubmitScreen() {
     } catch (error: any) {
       console.error('Erro no submit:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        'Erro ao submeter',
-        error.message || 'Falha ao submeter. Tenta novamente.\n\nVerifica a tua ligação à internet.'
-      );
+      toast.error('Erro ao submeter', { description: error.message || 'Falha ao submeter. Tenta novamente.\n\nVerifica a tua ligação à internet.' });
       return false;
     } finally {
       setLoading(false);
@@ -387,25 +386,24 @@ export default function SubmitScreen() {
   const handleSubmit = useCallback(async () => {
     // Validações básicas
     if (!media) {
-      Alert.alert('Atenção', 'Escolhe uma foto ou vídeo');
+      toast.warning('Escolhe uma foto ou vídeo');
       return;
     }
 
     if (mediaType && allowedMediaType !== 'both' && mediaType !== allowedMediaType) {
-      Alert.alert(
-        'Tipo de mídia não permitido',
-        `Este desafio só aceita ${allowedMediaType === 'photo' ? 'fotos' : 'vídeos'}.`
-      );
+      toast.warning('Tipo de mídia não permitido', {
+        description: `Este desafio só aceita ${allowedMediaType === 'photo' ? 'fotos' : 'vídeos'}.`,
+      });
       return;
     }
 
     if (!caption.trim()) {
-      Alert.alert('Atenção', 'Escreve uma legenda');
+      toast.warning('Escreve uma legenda');
       return;
     }
 
     if (!uid) {
-      Alert.alert('Erro', 'Sessão expirada. Faz login novamente.');
+      toast.error('Sessão expirada. Faz login novamente.');
       return;
     }
 
@@ -437,7 +435,7 @@ export default function SubmitScreen() {
   // ============================================================
   const handlePayment = useCallback(async () => {
     if (!id || !challengeInfo) {
-      Alert.alert('Erro', 'Desafio não encontrado.');
+      toast.error('Desafio não encontrado.');
       return;
     }
 
@@ -455,7 +453,7 @@ export default function SubmitScreen() {
     if (alreadyPaid) {
       setIsPaid(true);
       setShowPaymentModal(false);
-      Alert.alert('✅ Já Pago', 'Você já pagou este desafio.');
+      toast.success('Já pagaste este desafio');
       return;
     }
 
@@ -532,7 +530,7 @@ export default function SubmitScreen() {
   if (checkingExisting || checkingPayment) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#ff286a" size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
         <Text style={styles.loadingText}>
           {checkingPayment ? 'Verificando pagamento...' : 'Carregando...'}
         </Text>
@@ -558,7 +556,7 @@ export default function SubmitScreen() {
           <Text style={[styles.previewCaptionBold, { textAlign: 'center', marginBottom: 8, fontSize: 18 }]}>
             Já submeteste a tua entrada
           </Text>
-          <Text style={{ color: '#888', fontSize: 14, textAlign: 'center', paddingHorizontal: 32 }}>
+          <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', paddingHorizontal: 32 }}>
             Só podes participar uma vez em cada desafio.{'\n'}
             Partilha o teu link para angariar mais votos!
           </Text>
@@ -585,7 +583,7 @@ export default function SubmitScreen() {
             style={[styles.postBtnTop, (!media || !caption.trim()) && styles.postBtnTopDisabled]}
           >
             {loading ? (
-              <ActivityIndicator color="#ff286a" size="small" />
+              <ActivityIndicator color={colors.primary} size="small" />
             ) : (
               <Text style={[styles.postBtnTopText, (!media || !caption.trim()) && styles.postBtnTopTextDisabled]}>
                 Publicar
@@ -602,7 +600,7 @@ export default function SubmitScreen() {
           {/* Card do desafio */}
           <View style={styles.challengeCard}>
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.challengeCardHeader}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -649,7 +647,7 @@ export default function SubmitScreen() {
                     <Ionicons
                       name={isPaid ? 'checkmark-circle' : 'lock-closed'}
                       size={14}
-                      color={isPaid ? '#10B981' : '#F59E0B'}
+                      color={isPaid ? colors.success : colors.warning}
                     />
                     <Text style={[
                       styles.paymentStatusText,
@@ -724,7 +722,7 @@ export default function SubmitScreen() {
               <TextInput
                 style={styles.captionInput}
                 placeholder="Escreve uma legenda para o teu post..."
-                placeholderTextColor="#555"
+                placeholderTextColor={colors.textSubtle}
                 value={caption}
                 onChangeText={setCaption}
                 multiline
@@ -744,7 +742,7 @@ export default function SubmitScreen() {
               <Text style={styles.rulesText}>✓ Partilha o teu link depois de publicares para angariar votos</Text>
               <Text style={styles.rulesText}>✓ Quem tiver mais votos no fim, ganha o prémio</Text>
               {isPaidChallenge && (
-                <Text style={[styles.rulesText, { color: '#F59E0B' }]}>
+                <Text style={[styles.rulesText, { color: colors.warning }]}>
                   💳 Pagamento de {entryFee} MT necessário para participar
                 </Text>
               )}
@@ -762,7 +760,7 @@ export default function SubmitScreen() {
             ]}
           >
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.btn}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -783,7 +781,7 @@ export default function SubmitScreen() {
           {/* Mensagem de erro do pagamento */}
           {paymentError && (
             <View style={styles.paymentErrorContainer}>
-              <Ionicons name="alert-circle" size={18} color="#EF4444" />
+              <Ionicons name="alert-circle" size={18} color={colors.danger} />
               <Text style={styles.paymentErrorText}>{paymentError}</Text>
             </View>
           )}
@@ -826,7 +824,7 @@ export default function SubmitScreen() {
                     disabled={paymentLoading}
                     style={styles.modalClose}
                   >
-                    <Ionicons name="close" size={24} color="#6B6B85" />
+                    <Ionicons name="close" size={24} color={colors.textSubtle} />
                   </TouchableOpacity>
                 </View>
 
@@ -852,7 +850,7 @@ export default function SubmitScreen() {
                   <TextInput
                     style={[styles.phoneInput, phoneError && styles.phoneInputError]}
                     placeholder="84 023 7100"
-                    placeholderTextColor="#555"
+                    placeholderTextColor={colors.textSubtle}
                     value={phoneNumber}
                     onChangeText={(text) => {
                       setPhoneNumber(text);
@@ -873,15 +871,15 @@ export default function SubmitScreen() {
                 <View style={styles.modalBenefits}>
                   <Text style={styles.modalBenefitsTitle}>Ao pagar, você terá:</Text>
                   <View style={styles.modalBenefitItem}>
-                    <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
                     <Text style={styles.modalBenefitText}>Participação garantida no desafio</Text>
                   </View>
                   <View style={styles.modalBenefitItem}>
-                    <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
                     <Text style={styles.modalBenefitText}>Chance de ganhar o prémio</Text>
                   </View>
                   <View style={styles.modalBenefitItem}>
-                    <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
                     <Text style={styles.modalBenefitText}>Visibilidade na comunidade</Text>
                   </View>
                 </View>
@@ -897,7 +895,7 @@ export default function SubmitScreen() {
                   ]}
                 >
                   <LinearGradient
-                    colors={['#7C3AED', '#DB2777']}
+                    colors={gradients.primary}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.modalPayGradient}
@@ -928,7 +926,7 @@ export default function SubmitScreen() {
                 {/* Mensagem de erro */}
                 {paymentError && (
                   <View style={styles.modalError}>
-                    <Ionicons name="alert-circle" size={18} color="#EF4444" />
+                    <Ionicons name="alert-circle" size={18} color={colors.danger} />
                     <Text style={styles.modalErrorText}>{paymentError}</Text>
                   </View>
                 )}
@@ -964,7 +962,7 @@ function getTimeLeft(endsAt: number): string {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#888', marginTop: 12, fontSize: 14 },
+  loadingText: { color: colors.textMuted, marginTop: 12, fontSize: 14 },
 
   // Header
   header: {
@@ -974,15 +972,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: colors.surface,
   },
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   backText: { color: '#fff', fontSize: 22 },
   headerTitle: { flex: 1, textAlign: 'center', color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
   postBtnTop: { paddingHorizontal: 8, paddingVertical: 4, width: 70, alignItems: 'flex-end' },
   postBtnTopDisabled: { opacity: 0.4 },
-  postBtnTopText: { color: '#ff286a', fontSize: 15, fontFamily: 'Inter_700Bold' },
-  postBtnTopTextDisabled: { color: '#555' },
+  postBtnTopText: { color: colors.primary, fontSize: 15, fontFamily: 'Inter_700Bold' },
+  postBtnTopTextDisabled: { color: colors.textSubtle },
 
   scroll: { paddingBottom: 100 },
 
@@ -992,9 +990,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 0.5,
-    borderColor: '#222',
+    borderColor: colors.surfaceRaised,
   },
   challengeCardHeader: {
     paddingHorizontal: 16,
@@ -1017,7 +1015,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   challengeDescription: {
-    color: '#aaa',
+    color: colors.textSecondary,
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
     lineHeight: 19,
@@ -1042,7 +1040,7 @@ const styles = StyleSheet.create({
   challengeMetaDivider: {
     width: 1,
     height: 16,
-    backgroundColor: '#2a2a2a',
+    backgroundColor: colors.border,
   },
   paymentStatusBadge: {
     flexDirection: 'row',
@@ -1067,8 +1065,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
   },
-  paidText: { color: '#10B981' },
-  unpaidText: { color: '#F59E0B' },
+  paidText: { color: colors.success },
+  unpaidText: { color: colors.warning },
 
   mediaTypePill: {
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -1094,7 +1092,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   sponsorPillText: {
-    color: '#ff286a',
+    color: colors.primary,
     fontSize: 11,
     fontFamily: 'Inter_500Medium',
   },
@@ -1103,10 +1101,10 @@ const styles = StyleSheet.create({
   mediaPreviewWrap: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderTopWidth: 0.5,
     borderBottomWidth: 0.5,
-    borderColor: '#1a1a1a',
+    borderColor: colors.surface,
     position: 'relative',
   },
   mediaPreview: {
@@ -1138,12 +1136,12 @@ const styles = StyleSheet.create({
   uploadEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   uploadIconCircle: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center',
   },
   uploadEmoji: { fontSize: 28 },
   uploadText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_500Medium' },
-  uploadSub: { color: '#555', fontSize: 12.5, fontFamily: 'Inter_400Regular' },
+  uploadSub: { color: colors.textSubtle, fontSize: 12.5, fontFamily: 'Inter_400Regular' },
 
   // Legenda
   captionSection: {
@@ -1158,7 +1156,7 @@ const styles = StyleSheet.create({
   },
   avatarSmall: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#ff286a',
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
     marginTop: 2,
   },
@@ -1171,21 +1169,21 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingTop: 6,
   },
-  counter: { textAlign: 'right', fontSize: 11, color: '#555', fontFamily: 'Inter_400Regular' },
+  counter: { textAlign: 'right', fontSize: 11, color: colors.textSubtle, fontFamily: 'Inter_400Regular' },
 
   // Regras
   rulesBox: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 0.5,
-    borderColor: '#1a1a1a',
+    borderColor: colors.surface,
     borderRadius: 14,
     padding: 14,
     gap: 8,
   },
   rulesTitle: {
-    color: '#888',
+    color: colors.textMuted,
     fontSize: 11,
     fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
@@ -1219,7 +1217,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   paymentErrorText: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 13,
     flex: 1,
     fontFamily: 'Inter_400Regular',
@@ -1233,7 +1231,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#0A0A12',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -1242,7 +1240,7 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#333',
+    backgroundColor: colors.borderStrong,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -1263,7 +1261,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   modalChallengeInfo: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -1274,7 +1272,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   modalInfoLabel: {
-    color: '#6B6B85',
+    color: colors.textSubtle,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
   },
@@ -1285,7 +1283,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
   },
   modalInfoAmount: {
-    color: '#7C3AED',
+    color: colors.primary,
     fontWeight: 'bold',
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
@@ -1296,13 +1294,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   phoneInputLabel: {
-    color: '#A1A1B8',
+    color: colors.textSecondary,
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
     marginBottom: 6,
   },
   phoneInput: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 14,
     color: '#FFFFFF',
@@ -1312,16 +1310,16 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   phoneInputError: {
-    borderColor: '#EF4444',
+    borderColor: colors.danger,
   },
   phoneInputErrorText: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     marginTop: 4,
   },
   phoneInputHelper: {
-    color: '#4A4A62',
+    color: colors.textSubtle,
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     marginTop: 4,
@@ -1334,7 +1332,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalBenefitsTitle: {
-    color: '#A1A1B8',
+    color: colors.textSecondary,
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
     marginBottom: 8,
@@ -1377,7 +1375,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalManualText: {
-    color: '#6B6B85',
+    color: colors.textSubtle,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     textDecorationLine: 'underline',
@@ -1392,13 +1390,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalErrorText: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 13,
     flex: 1,
     fontFamily: 'Inter_400Regular',
   },
   modalTerms: {
-    color: '#4A4A62',
+    color: colors.textSubtle,
     fontSize: 12,
     textAlign: 'center',
     fontFamily: 'Inter_400Regular',

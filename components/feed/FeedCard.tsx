@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { push, ref, set } from 'firebase/database';
@@ -16,8 +17,10 @@ import { FeedEntry } from '../../hooks/useFeedEntries';
 import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
 import { sharePost } from '../../services/share';
+import { colors } from '../../constants/theme';
+import { toast } from 'sonner-native';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const DOUBLE_TAP_DELAY = 280;
 
 interface Props {
@@ -172,7 +175,7 @@ export default function FeedCard({
   const submitReport = async (reason: string) => {
     const uid = auth.currentUser?.uid;
     if (!uid) {
-      Alert.alert('Atenção', 'Precisas de ter conta para denunciar conteúdo.');
+      toast.warning('Precisas de ter conta para denunciar conteúdo.');
       return;
     }
     try {
@@ -189,7 +192,7 @@ export default function FeedCard({
         status: 'pending',
         createdAt: Date.now(),
       });
-      Alert.alert('Denúncia enviada', 'A nossa equipa vai analisar este conteúdo.');
+      toast.success('Denúncia enviada', { description: 'A nossa equipa vai analisar este conteúdo.' });
     } catch (e) {
       console.error('Erro ao denunciar:', e);
     }
@@ -240,16 +243,24 @@ export default function FeedCard({
           onPress={handleLikePress}
           disabled={!canLike || isLiking}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={hasVoted ? 'Retirar voto' : 'Votar nesta participação'}
+          accessibilityState={{ selected: hasVoted, disabled: !canLike || isLiking }}
         >
-          <Text style={[styles.actionIcon, hasVoted && styles.actionIconActive]}>
-            {hasVoted ? '❤️' : '🤍'}
-          </Text>
+          <Ionicons
+            name={hasVoted ? 'heart' : 'heart-outline'}
+            size={34}
+            color={hasVoted ? colors.primary : '#fff'}
+            style={styles.actionIcon}
+          />
           <Text style={styles.actionCount}>{entry.votes || 0}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionBtn}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Partilhar"
           onPress={() =>
             sharePost({
               challengeTitle: entry.challengeTitle,
@@ -260,12 +271,12 @@ export default function FeedCard({
             })
           }
         >
-          <Text style={styles.actionIcon}>↗️</Text>
+          <Ionicons name="arrow-redo" size={30} color="#fff" style={styles.actionIcon} />
           <Text style={styles.actionCount}>Partilhar</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity accessibilityLabel="Denunciar ou bloquear utilizador" style={styles.actionBtn} activeOpacity={0.8} onPress={handleActions}>
-          <Text style={styles.actionIcon}>⚠️</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Denunciar ou bloquear utilizador" style={styles.actionBtn} activeOpacity={0.8} onPress={handleActions}>
+          <Ionicons name="flag-outline" size={26} color="#fff" style={styles.actionIcon} />
         </TouchableOpacity>
       </View>
 
@@ -298,7 +309,7 @@ export default function FeedCard({
 const styles = StyleSheet.create({
   card: {
     width,
-    height,
+    height: '100%',
     backgroundColor: '#000',
     position: 'relative',
   },
@@ -320,7 +331,7 @@ const styles = StyleSheet.create({
   },
   heartBurst: {
     position: 'absolute',
-    top: height * 0.36,
+    top: '36%',
     alignSelf: 'center',
     fontSize: 90,
     zIndex: 99,
@@ -375,7 +386,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#ff286a',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -391,12 +402,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionIcon: {
-    fontSize: 34,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  actionIconActive: {},
   actionCount: {
     color: '#fff',
     fontSize: 12,
@@ -425,7 +434,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   ownBadgeText: {
-    color: '#ff286a',
+    color: colors.primary,
     fontSize: 10,
     fontFamily: 'Inter_500Medium',
   },

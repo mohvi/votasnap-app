@@ -1,4 +1,4 @@
-import { Inter_400Regular, Inter_500Medium, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
 import { router, Stack } from 'expo-router';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as SplashScreen from 'expo-splash-screen';
@@ -7,12 +7,14 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Toaster } from 'sonner-native';
 import { auth } from '../services/firebase';
 import { BlockedUsersProvider } from '../hooks/BlockedUsersProvider';
 import {
   registerForPushNotifications,
   savePushToken,
 } from '../services/notifications';
+import { colors } from '../constants/theme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -20,6 +22,7 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
+    Inter_600SemiBold,
     Inter_700Bold,
   });
 
@@ -96,7 +99,7 @@ useEffect(() => {
   return (
     <SafeAreaProvider>
     <BlockedUsersProvider>
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
@@ -108,6 +111,7 @@ useEffect(() => {
         <Stack.Screen name="challenge/vote" />
         <Stack.Screen name="entry/[challengeId]/[entryId]" />
       </Stack>
+      <Toaster theme="dark" position="top-center" richColors />
     </GestureHandlerRootView>
     </BlockedUsersProvider>
     </SafeAreaProvider>

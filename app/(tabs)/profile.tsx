@@ -23,6 +23,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { FeedEntry } from '../../hooks/useFeedEntries';
 import { useSnaps } from '../../hooks/useSnaps';
 import { auth, db } from '../../services/firebase';
+import { colors, gradients } from '../../constants/theme';
+import { toast } from 'sonner-native';
 
 const { width, height } = Dimensions.get('window');
 const DELETE_CONFIRM_WORD = 'ELIMINAR';
@@ -175,7 +177,7 @@ export default function ProfileScreen() {
       const token = await user.getIdTokenResult(true);
       const authenticatedAt = Date.parse(token.authTime);
       if (!Number.isFinite(authenticatedAt) || Date.now() - authenticatedAt > 4 * 60 * 1000) {
-        Alert.alert('Confirma a tua identidade', 'Sai e volta a entrar antes de eliminar a conta. Nenhum dado foi removido.');
+        toast.warning('Confirma a tua identidade', { description: 'Sai e volta a entrar antes de eliminar a conta. Nenhum dado foi removido.' });
         return;
       }
       setDeleteStep('A eliminar a conta e os teus ficheiros...');
@@ -185,7 +187,7 @@ export default function ProfileScreen() {
     } catch (e: any) {
       console.error('Erro ao eliminar conta:', e);
 
-      Alert.alert('Erro', e.message || 'Não foi possível concluir a eliminação. Contacta geral@votasnap.com.');
+      toast.error(e.message || 'Não foi possível concluir a eliminação. Contacta geral@votasnap.com.');
     } finally {
       setDeleting(false);
       setShowDeleteModal(false);
@@ -215,7 +217,7 @@ export default function ProfileScreen() {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.loginBtn}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -231,7 +233,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#ff286a" size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -265,7 +267,7 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity onPress={() => router.push('/blocked-users')} style={{ paddingVertical: 16 }}>
-          <Text style={{ color: '#ff286a' }}>Utilizadores bloqueados</Text>
+          <Text style={{ color: colors.primary }}>Utilizadores bloqueados</Text>
         </TouchableOpacity>
 
         {/* Avatar + info */}
@@ -274,7 +276,7 @@ export default function ProfileScreen() {
             <Image source={{ uri: profile.avatar }} style={styles.avatar} />
           ) : (
             <LinearGradient
-              colors={['#ff286a', '#ff8c5a']}
+              colors={gradients.primary}
               style={styles.avatarPlaceholder}
             >
               <Text style={styles.avatarText}>
@@ -482,7 +484,7 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             {deleting ? (
               <View style={styles.deletingWrap}>
-                <ActivityIndicator color="#ff286a" size="large" />
+                <ActivityIndicator color={colors.primary} size="large" />
                 <Text style={styles.deletingText}>{deleteStep || 'A eliminar...'}</Text>
               </View>
             ) : (
@@ -494,7 +496,7 @@ export default function ProfileScreen() {
                 <Text style={styles.modalText}>
                   Isto vai apagar permanentemente o teu perfil, participações, votos e avatar.
                   Não é possível recuperar depois. Para confirmar, escreve{' '}
-                  <Text style={{ color: '#ff286a', fontFamily: 'Inter_700Bold' }}>{DELETE_CONFIRM_WORD}</Text> abaixo.
+                  <Text style={{ color: colors.primary, fontFamily: 'Inter_700Bold' }}>{DELETE_CONFIRM_WORD}</Text> abaixo.
                 </Text>
 
                 <TextInput
@@ -541,7 +543,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   center: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  errorText: { color: '#ef4444', fontSize: 16, fontFamily: 'Inter_500Medium' },
+  errorText: { color: colors.danger, fontSize: 16, fontFamily: 'Inter_500Medium' },
   scroll: { paddingBottom: 100 },
 
   header: {
@@ -551,7 +553,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#1a1a1a',
+    borderBottomColor: colors.surface,
   },
   headerActions: {
     flexDirection: 'row',
@@ -570,12 +572,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   snapsIcon: { fontSize: 13 },
-  snapsText: { color: '#FFD700', fontSize: 13, fontFamily: 'Inter_700Bold' },
+  snapsText: { color: colors.gold, fontSize: 13, fontFamily: 'Inter_700Bold' },
   headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#fff' },
   logoutBtn: {
-    backgroundColor: '#e41e1e',
+    backgroundColor: colors.danger,
     borderWidth: 0.5,
-    borderColor: '#333',
+    borderColor: colors.borderStrong,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
@@ -589,7 +591,7 @@ const styles = StyleSheet.create({
   },
   avatar: {
     width: 90, height: 90, borderRadius: 45,
-    borderWidth: 3, borderColor: '#ff286a',
+    borderWidth: 3, borderColor: colors.primary,
     marginBottom: 4,
   },
   avatarPlaceholder: {
@@ -599,16 +601,16 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: '#fff', fontSize: 36, fontFamily: 'Inter_700Bold' },
   name: { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#fff' },
-  username: { fontSize: 14, fontFamily: 'Inter_400Regular', color: '#888' },
+  username: { fontSize: 14, fontFamily: 'Inter_400Regular', color: colors.textMuted },
   bio: {
-    fontSize: 14, fontFamily: 'Inter_400Regular', color: '#aaa',
+    fontSize: 14, fontFamily: 'Inter_400Regular', color: colors.textSecondary,
     textAlign: 'center', lineHeight: 20, paddingHorizontal: 32,
   },
   editBtn: {
     marginTop: 8,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderWidth: 0.5,
-    borderColor: '#333',
+    borderColor: colors.borderStrong,
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
@@ -617,16 +619,16 @@ const styles = StyleSheet.create({
 
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderTopWidth: 0.5,
     borderBottomWidth: 0.5,
-    borderColor: '#1a1a1a',
+    borderColor: colors.surface,
     marginBottom: 8,
   },
   statBox: { flex: 1, alignItems: 'center', paddingVertical: 16 },
   statNum: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#fff' },
-  statLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: '#555', marginTop: 2 },
-  statDivider: { width: 0.5, backgroundColor: '#1a1a1a', marginVertical: 12 },
+  statLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.textSubtle, marginTop: 2 },
+  statDivider: { width: 0.5, backgroundColor: colors.surface, marginVertical: 12 },
 
   section: { paddingHorizontal: 16, paddingTop: 16 },
   sectionTitle: {
@@ -635,9 +637,9 @@ const styles = StyleSheet.create({
 
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
   badge: {
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderWidth: 0.5,
-    borderColor: '#333',
+    borderColor: colors.borderStrong,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -646,28 +648,28 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   badgeEmoji: { fontSize: 22 },
-  badgeLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: '#888' },
-  noBadges: { color: '#555', fontSize: 13, fontFamily: 'Inter_400Regular' },
+  badgeLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.textMuted },
+  noBadges: { color: colors.textSubtle, fontSize: 13, fontFamily: 'Inter_400Regular' },
 
   emptyEntries: { alignItems: 'center', paddingVertical: 32, gap: 12 },
   emptyEmoji: { fontSize: 48 },
   emptyText: {
-    color: '#555', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center',
+    color: colors.textSubtle, fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center',
   },
 
   entryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111',
+    backgroundColor: colors.surfaceSunken,
     borderRadius: 14,
     borderWidth: 0.5,
-    borderColor: '#1a1a1a',
+    borderColor: colors.surface,
     padding: 10,
     marginBottom: 10,
     gap: 12,
   },
   entryThumb: {
-    width: 60, height: 60, borderRadius: 10, backgroundColor: '#1a1a1a',
+    width: 60, height: 60, borderRadius: 10, backgroundColor: colors.surface,
   },
   entryThumbVideo: {
     alignItems: 'center',
@@ -676,26 +678,26 @@ const styles = StyleSheet.create({
   entryThumbVideoIcon: { fontSize: 18, opacity: 0.7 },
   entryInfo: { flex: 1, gap: 4 },
   entryChallenge: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#fff' },
-  entryCaption: { fontSize: 12, fontFamily: 'Inter_400Regular', color: '#666' },
+  entryCaption: { fontSize: 12, fontFamily: 'Inter_400Regular', color: colors.textSubtle },
   entryMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  entryVotes: { fontSize: 12, fontFamily: 'Inter_500Medium', color: '#ff286a' },
+  entryVotes: { fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.primary },
   topBadge: {
     backgroundColor: 'rgba(255,215,0,0.1)',
     borderWidth: 0.5,
-    borderColor: '#FFD700',
+    borderColor: colors.gold,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  topBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#FFD700' },
-  entryArrow: { color: '#555', fontSize: 20 },
+  topBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: colors.gold },
+  entryArrow: { color: colors.textSubtle, fontSize: 20 },
 
   emptyTitle: {
     color: '#fff', fontSize: 20,
     fontFamily: 'Inter_700Bold', textAlign: 'center',
   },
   emptySub: {
-    color: '#888', fontSize: 14,
+    color: colors.textMuted, fontSize: 14,
     fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22,
   },
   loginWrap: { borderRadius: 14, overflow: 'hidden', width: '85%', marginTop: 8 },
@@ -712,12 +714,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteAccountBtnText: {
-    color: '#ef4444',
+    color: colors.danger,
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
   },
   deleteAccountHint: {
-    color: '#555',
+    color: colors.textSubtle,
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
@@ -759,13 +761,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalContent: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 24,
     width: '100%',
     maxWidth: 340,
     borderWidth: 0.5,
-    borderColor: '#2a2a2a',
+    borderColor: colors.border,
   },
   modalHeader: {
     alignItems: 'center',
@@ -783,16 +785,16 @@ const styles = StyleSheet.create({
   modalText: {
     fontSize: 13.5,
     fontFamily: 'Inter_400Regular',
-    color: '#aaa',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 18,
     lineHeight: 20,
   },
   confirmInput: {
-    backgroundColor: '#0d0d0d',
+    backgroundColor: colors.background,
     borderRadius: 12,
     borderWidth: 0.5,
-    borderColor: '#333',
+    borderColor: colors.borderStrong,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: '#fff',
@@ -813,16 +815,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalButtonCancel: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: colors.border,
   },
   modalButtonDelete: {
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.danger,
   },
   modalButtonDisabled: {
     opacity: 0.35,
   },
   modalButtonTextCancel: {
-    color: '#aaa',
+    color: colors.textSecondary,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
   },
@@ -837,7 +839,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   deletingText: {
-    color: '#aaa',
+    color: colors.textSecondary,
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
   },
