@@ -49,7 +49,7 @@ export default function OnboardingModal({ visible, onClose }: Props) {
             <Text style={styles.stepTitle}>Participa em desafios</Text>
 
             <Text style={styles.stepDesc}>
-              Publica a tua foto ou vídeo e concorre a prémios em dinheiro.
+              Publica a tua foto ou vídeo e concorre a prémios oferecidos por marcas. Participar é sempre grátis.
             </Text>
           </View>
         </View>

@@ -51,6 +51,22 @@ test('admin claim permits administration; user profile field does not', async ()
   await assertSucceeds(admin.ref('challenges/c/title').set('Updated'));
   await assertFails(env.authenticatedContext('bob', {admin:false}).database().ref('challenges/c/title').set('Forged'));
 });
+test('sponsor names are public; contacts and deals are admin-only', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref().update({ 'sponsors/s': { name: 'Marca', active: true }, 'sponsorPrivate/s': { contactPhone: '840000000' }, 'challengeDeals/c': { sponsorId: 's', amountMzn: 5000, paymentStatus: 'pending' } });
+  });
+  const anonymous = env.unauthenticatedContext().database();
+  const user = env.authenticatedContext('alice').database();
+  await assertSucceeds(anonymous.ref('sponsors/s').once('value'));
+  for (const db of [anonymous, user]) {
+    for (const path of ['sponsorPrivate', 'sponsorPrivate/s', 'challengeDeals', 'challengeDeals/c']) await assertFails(db.ref(path).once('value'));
+    for (const path of ['sponsors/s/name', 'sponsorPrivate/s/notes', 'challengeDeals/c/paymentStatus']) await assertFails(db.ref(path).set('forged'));
+  }
+  const admin = env.authenticatedContext('admin', {admin:true}).database();
+  await assertSucceeds(admin.ref('challengeDeals/c').once('value'));
+  await assertSucceeds(admin.ref('challengeDeals/c/paymentStatus').set('paid'));
+  await assertSucceeds(admin.ref('sponsorPrivate/s/notes').set('ok'));
+});
 test('Storage enforces ownership, MIME, size, and prevents replacing published entries', async () => {
   const user = env.authenticatedContext('alice').storage('gs://demo-votasnap.appspot.com');
   const anon = env.unauthenticatedContext().storage('gs://demo-votasnap.appspot.com');
@@ -65,4 +81,6 @@ test('Storage enforces ownership, MIME, size, and prevents replacing published e
   await assertSucceeds(user.ref('entries/c/alice/a.jpg').put(body, photo));
   await assertFails(user.ref('entries/c/alice/a.jpg').put(body, photo));
   await assertFails(user.ref('entries/c/alice/a.jpg').delete());
+  await assertFails(user.ref('sponsors/s/logo.png').put(body, {contentType:'image/png'}));
+  await assertSucceeds(env.authenticatedContext('admin', {admin:true}).storage('gs://demo-votasnap.appspot.com').ref('sponsors/s/logo.png').put(body, {contentType:'image/png'}));
 });

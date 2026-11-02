@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../constants/theme';
 
 const rules = [
-  ['Participação', 'Consulta o tema, o prazo, os critérios de participação e as condições do prémio de cada desafio antes de publicar. Não participes se essas informações não estiverem claras.'],
+  ['Participação', 'Participar e votar é gratuito: a VotaSnap não cobra inscrições. Consulta o tema, o prazo, os critérios de participação e as condições do prémio de cada desafio antes de publicar. Não participes se essas informações não estiverem claras.'],
+  ['Desafios patrocinados', 'Todos os desafios são organizados pela VotaSnap. Num desafio patrocinado, a marca indicada oferece o prémio. A marca não escolhe o vencedor: ganha quem tiver mais votos válidos.'],
   ['Conteúdo', 'Publica apenas conteúdo que tens direito de utilizar. Não publiques conteúdo ilegal, exploração sexual, ameaças, assédio, discriminação, dados privados de terceiros ou spam.'],
   ['Votação', 'É permitido um voto por conta em cada desafio. Não votes na tua própria participação, não compres votos e não utilizes contas falsas para manipular resultados. Os votos deixam de ser aceites no encerramento.'],
   ['Moderação', 'Podes denunciar conteúdo e bloquear utilizadores no menu de uma publicação. Conteúdo que viole estas regras pode ser removido e contas podem ser suspensas. Para contestar uma decisão, contacta o suporte.'],

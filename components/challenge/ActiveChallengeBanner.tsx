@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Challenge } from '../../hooks/useChallenges';
+import { SponsorName } from './SponsorName';
 import { colors, gradients } from '../../constants/theme';
 
 function TimeLeft({ endsAt }: { endsAt: number }) {
@@ -56,7 +57,7 @@ export default function ActiveChallengeBanner({ challenge }: { challenge: Challe
           {/* Pill do patrocinador — só aparece quando challenge.type === 'sponsored' */}
           {isSponsored && (
             <View style={styles.sponsorPill}>
-              <Text style={styles.sponsorText}>📢 {challenge.sponsor}</Text>
+              <SponsorName name={challenge.sponsor} logo={challenge.sponsorLogo} textStyle={styles.sponsorText} />
             </View>
           )}
         </View>

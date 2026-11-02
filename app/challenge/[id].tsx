@@ -14,7 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AuthPrompt from '../../components/ui/AuthPrompt';
 import { useAuth } from '../../hooks/useAuth';
-import { Challenge } from '../../hooks/useChallenges';
+import { Challenge, challengeTypeLabel } from '../../hooks/useChallenges';
+import { SponsorName } from '../../components/challenge/SponsorName';
 import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
@@ -39,8 +40,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, readonly [string, string]> = {
-  sponsored: gradients.primary,
-  paid: gradients.paid,
+  sponsored: gradients.primary,
   free: gradients.free,
 };
 
@@ -166,7 +166,7 @@ export default function ChallengeDetailScreen() {
             <View style={styles.badges}>
               {isSponsored && (
                 <View style={styles.sponsorBadge}>
-                  <Text style={styles.sponsorText}>📢 {challenge.sponsor}</Text>
+                  <SponsorName name={challenge.sponsor} logo={challenge.sponsorLogo} textStyle={styles.sponsorText} />
                 </View>
               )}
               <LinearGradient
@@ -176,9 +176,7 @@ export default function ChallengeDetailScreen() {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.typeText}>
-                  {challenge.type === 'sponsored' ? 'Patrocinado'
-                    : challenge.type === 'paid' ? 'Pago'
-                    : 'Gratuito'}
+                  {challengeTypeLabel(challenge.type)}
                 </Text>
               </LinearGradient>
             </View>
@@ -199,7 +197,7 @@ export default function ChallengeDetailScreen() {
             <View style={styles.badges}>
               {isSponsored && (
                 <View style={styles.sponsorBadge}>
-                  <Text style={styles.sponsorText}>📢 {challenge.sponsor}</Text>
+                  <SponsorName name={challenge.sponsor} logo={challenge.sponsorLogo} textStyle={styles.sponsorText} />
                 </View>
               )}
               <LinearGradient
@@ -209,9 +207,7 @@ export default function ChallengeDetailScreen() {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.typeText}>
-                  {challenge.type === 'sponsored' ? 'Patrocinado'
-                    : challenge.type === 'paid' ? 'Pago'
-                    : 'Gratuito'}
+                  {challengeTypeLabel(challenge.type)}
                 </Text>
               </LinearGradient>
             </View>

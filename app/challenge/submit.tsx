@@ -1,19 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { get, ref } from 'firebase/database';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  AppState,
   Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,7 +19,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authenticatedRequest } from '../../services/api';
-import { useChallengePayment } from '../../hooks/useChallengePayment';
 import { auth, db, storage } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
 import { toast } from 'sonner-native';
@@ -38,27 +32,21 @@ interface ChallengeInfo {
   prize: string;
   prizeType: string;
   sponsor: string;
+  sponsorLogo?: string | null;
   endsAt: number;
   totalParticipants: number;
   coverImage?: string;
   allowedMediaType?: 'photo' | 'video' | 'both';
-  type?: 'free' | 'paid' | 'sponsored';
+  type?: 'free' | 'sponsored';
   status: string;
-  entryFee?: number;
-  price?: number;
 }
-
-type PaymentScreenState = 'idle' | 'verifying' | 'payment_required' | 'submitting' | 'success' | 'error';
 
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
 export default function SubmitScreen() {
   const { id, title } = useLocalSearchParams<{ id: string; title: string }>();
-  
-  // Refs
-  const appStateRef = useRef(AppState.currentState);
-  
+
   // Estados do formulário
   const [media, setMedia] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'photo' | 'video' | null>(null);
@@ -68,33 +56,10 @@ export default function SubmitScreen() {
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [challengeInfo, setChallengeInfo] = useState<ChallengeInfo | null>(null);
   
-  // Estados do pagamento
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [isPaid, setIsPaid] = useState(false);
-  const [checkingPayment, setCheckingPayment] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-
   const uid = auth.currentUser?.uid;
 
   // Mídia aceite pelo desafio
   const allowedMediaType = challengeInfo?.allowedMediaType || 'both';
-  const isPaidChallenge = challengeInfo?.type === 'paid';
-  const entryFee = challengeInfo?.entryFee || challengeInfo?.price || 1;
-
-  // ============================================================
-  // HOOK DE PAGAMENTO CORRETO
-  // ============================================================
-  const {
-    status: paymentStatus,
-    loading: paymentLoading,
-    error: paymentError,
-    result: paymentResult,
-    payChallenge,
-    checkPaymentStatus,
-    reset: resetPaymentState,
-    registerManualPayment,
-  } = useChallengePayment();
 
   // ============================================================
   // CARREGAR DADOS DO DESAFIO
@@ -106,11 +71,7 @@ export default function SubmitScreen() {
         const snap = await get(ref(db, `challenges/${id}`));
         if (snap.exists()) {
           const data = snap.val();
-          setChallengeInfo({
-            ...data,
-            type: data.type || 'free',
-            entryFee: data.entryFee || data.price || 1,
-          });
+          setChallengeInfo({ ...data, type: data.type === 'sponsored' ? 'sponsored' : 'free' });
         }
       } catch (e) {
         console.error('Erro ao carregar desafio:', e);
@@ -144,37 +105,6 @@ export default function SubmitScreen() {
     };
     checkExisting();
   }, [id]);
-
-  // ============================================================
-  // VERIFICAR PAGAMENTO - CORRIGIDO
-  // ============================================================
-  const verifyPayment = useCallback(async (challengeId: string): Promise<boolean> => {
-    if (!uid || !challengeId || !isPaidChallenge) {
-      setCheckingPayment(false);
-      return false;
-    }
-
-    try {
-      const { paid } = await checkPaymentStatus(challengeId);
-      setIsPaid(paid);
-      return paid;
-    } catch (error) {
-      console.error('Erro ao verificar pagamento:', error);
-      setIsPaid(false);
-      return false;
-    } finally {
-      setCheckingPayment(false);
-    }
-  }, [uid, isPaidChallenge, checkPaymentStatus]);
-
-  // Efeito para verificar pagamento inicial
-  useEffect(() => {
-    if (uid && id && isPaidChallenge) {
-      verifyPayment(id);
-    } else {
-      setCheckingPayment(false);
-    }
-  }, [uid, id, isPaidChallenge, verifyPayment]);
 
   // ============================================================
   // FUNÇÕES DE MÍDIA
@@ -340,9 +270,6 @@ export default function SubmitScreen() {
       if (!challenge || challenge.status !== 'active' || !Number.isFinite(challenge.endsAt) || challenge.endsAt <= Date.now()) {
         throw new Error('Este desafio já não aceita participações.');
       }
-      if (challenge.type === 'paid' && !(await checkPaymentStatus(id)).paid) {
-        throw new Error('Aguarda a confirmação do pagamento antes de participar.');
-      }
       // Upload da mídia
       const mediaUrl = await uploadFileToStorage(media, id, uid);
 
@@ -378,10 +305,10 @@ export default function SubmitScreen() {
     } finally {
       setLoading(false);
     }
-  }, [media, caption, uid, id, mediaType, isPaidChallenge, challengeInfo, uploadFileToStorage, checkPaymentStatus]);
+  }, [media, caption, uid, id, mediaType, uploadFileToStorage]);
 
   // ============================================================
-  // HANDLE SUBMIT COM VERIFICAÇÃO DE PAGAMENTO
+  // HANDLE SUBMIT
   // ============================================================
   const handleSubmit = useCallback(async () => {
     // Validações básicas
@@ -407,15 +334,6 @@ export default function SubmitScreen() {
       return;
     }
 
-    // Verificar pagamento para desafios pagos
-    if (isPaidChallenge) {
-      const paid = await verifyPayment(id);
-      if (!paid) {
-        setShowPaymentModal(true);
-        return;
-      }
-    }
-
     // ✅ Tudo verificado - submeter
     await performSubmission();
   }, [
@@ -423,116 +341,19 @@ export default function SubmitScreen() {
     mediaType,
     caption,
     uid,
-    id,
-    isPaidChallenge,
     allowedMediaType,
-    verifyPayment,
     performSubmission,
   ]);
 
   // ============================================================
-  // HANDLE PAGAMENTO - CORRIGIDO
-  // ============================================================
-  const handlePayment = useCallback(async () => {
-    if (!id || !challengeInfo) {
-      toast.error('Desafio não encontrado.');
-      return;
-    }
-
-    // Validar número de telefone
-    if (!phoneNumber.trim()) {
-      setPhoneError('Por favor, insira o seu número de telefone.');
-      return;
-    }
-
-    // Limpar erro anterior
-    setPhoneError(null);
-
-    // Verificar se já pagou (evitar duplicação)
-    const alreadyPaid = await verifyPayment(id);
-    if (alreadyPaid) {
-      setIsPaid(true);
-      setShowPaymentModal(false);
-      toast.success('Já pagaste este desafio');
-      return;
-    }
-
-    // Processar pagamento
-    const result = await payChallenge(id, phoneNumber);
-
-    if (result) {
-      // ✅ Pagamento bem sucedido
-      setIsPaid(true);
-      setShowPaymentModal(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
-      Alert.alert(
-        '✅ Pagamento Confirmado!',
-        'Agora você pode submeter sua entrada.',
-        [
-          {
-            text: 'Continuar',
-            onPress: async () => {
-              // Submeter automaticamente após pagamento
-              await performSubmission();
-            }
-          }
-        ]
-      );
-    } else {
-      // ❌ Pagamento falhou - erro já está no paymentError
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      // O erro é exibido no modal via paymentError
-    }
-  }, [id, challengeInfo, phoneNumber, payChallenge, verifyPayment, performSubmission]);
-
-  // ============================================================
-  // REGISTAR PAGAMENTO MANUAL
-  // ============================================================
-  const handleManualPayment = useCallback(async () => {
-    if (!id || !challengeInfo) return;
-
-    Alert.alert(
-      'Pagamento Manual',
-      'Deseja registrar que já fez o pagamento? Um administrador irá verificar.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          onPress: async () => {
-            const success = await registerManualPayment(id, entryFee);
-            if (success) {
-              setIsPaid(false);
-              setShowPaymentModal(false);
-              Alert.alert(
-                '✅ Pagamento Registado',
-                'Sua solicitação foi enviada para verificação. Aguarde a confirmação do administrador.'
-              );
-            }
-          }
-        }
-      ]
-    );
-  }, [id, challengeInfo, entryFee, registerManualPayment]);
-
-  // ============================================================
-  // LIMPAR ESTADO NO UNMOUNT
-  // ============================================================
-  useEffect(() => {
-    return () => {
-      resetPaymentState();
-    };
-  }, [resetPaymentState]);
-
-  // ============================================================
   // RENDER: CARREGANDO
   // ============================================================
-  if (checkingExisting || checkingPayment) {
+  if (checkingExisting) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.primary} size="large" />
         <Text style={styles.loadingText}>
-          {checkingPayment ? 'Verificando pagamento...' : 'Carregando...'}
+          Carregando...
         </Text>
       </View>
     );
@@ -638,25 +459,6 @@ export default function SubmitScreen() {
                   </View>
                 </View>
 
-                {/* Status de pagamento */}
-                {isPaidChallenge && (
-                  <View style={[
-                    styles.paymentStatusBadge,
-                    isPaid ? styles.paidBadge : styles.unpaidBadge,
-                  ]}>
-                    <Ionicons
-                      name={isPaid ? 'checkmark-circle' : 'lock-closed'}
-                      size={14}
-                      color={isPaid ? colors.success : colors.warning}
-                    />
-                    <Text style={[
-                      styles.paymentStatusText,
-                      isPaid ? styles.paidText : styles.unpaidText,
-                    ]}>
-                      {isPaid ? '✅ Pago' : `💳 Pagar ${entryFee} MT para participar`}
-                    </Text>
-                  </View>
-                )}
 
                 <View style={styles.mediaTypePill}>
                   <Text style={styles.mediaTypePillText}>
@@ -666,9 +468,12 @@ export default function SubmitScreen() {
                   </Text>
                 </View>
 
-                {challengeInfo.sponsor && (
+                {challengeInfo.type === 'sponsored' && !!challengeInfo.sponsor && (
                   <View style={styles.sponsorPill}>
-                    <Text style={styles.sponsorPillText}>📢 Patrocinado por {challengeInfo.sponsor}</Text>
+                    {challengeInfo.sponsorLogo ? (
+                      <Image source={{ uri: challengeInfo.sponsorLogo }} style={styles.sponsorLogo} />
+                    ) : null}
+                    <Text style={styles.sponsorPillText}>Patrocinado por {challengeInfo.sponsor}</Text>
                   </View>
                 )}
               </View>
@@ -741,22 +546,17 @@ export default function SubmitScreen() {
               <Text style={styles.rulesText}>✓ O conteúdo deve respeitar o tema do desafio</Text>
               <Text style={styles.rulesText}>✓ Partilha o teu link depois de publicares para angariar votos</Text>
               <Text style={styles.rulesText}>✓ Quem tiver mais votos no fim, ganha o prémio</Text>
-              {isPaidChallenge && (
-                <Text style={[styles.rulesText, { color: colors.warning }]}>
-                  💳 Pagamento de {entryFee} MT necessário para participar
-                </Text>
-              )}
             </View>
           </View>
 
           {/* Botão submeter */}
           <TouchableOpacity
             onPress={handleSubmit}
-            disabled={loading || !media || !caption.trim() || (isPaidChallenge && !isPaid)}
+            disabled={loading || !media || !caption.trim()}
             activeOpacity={0.85}
             style={[
               styles.btnWrap,
-              (!media || !caption.trim() || (isPaidChallenge && !isPaid)) && styles.btnDisabled,
+              (!media || !caption.trim()) && styles.btnDisabled,
             ]}
           >
             <LinearGradient
@@ -770,175 +570,14 @@ export default function SubmitScreen() {
                   <ActivityIndicator color="#fff" size="small" />
                   <Text style={[styles.btnText, { marginLeft: 10 }]}>A publicar...</Text>
                 </>
-              ) : isPaidChallenge && !isPaid ? (
-                <Text style={styles.btnText}>💳 Pagar {entryFee} MT para Publicar</Text>
               ) : (
                 <Text style={styles.btnText}>Publicar entrada 🚀</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Mensagem de erro do pagamento */}
-          {paymentError && (
-            <View style={styles.paymentErrorContainer}>
-              <Ionicons name="alert-circle" size={18} color={colors.danger} />
-              <Text style={styles.paymentErrorText}>{paymentError}</Text>
-            </View>
-          )}
         </ScrollView>
       </SafeAreaView>
-
-      {/* ============================================================
-          MODAL DE PAGAMENTO - CORRIGIDO
-          ============================================================ */}
-      <Modal
-        visible={showPaymentModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          if (!paymentLoading) {
-            setShowPaymentModal(false);
-            setPhoneError(null);
-          }
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalSheet}>
-              {/* Handle */}
-              <View style={styles.modalHandle} />
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>💳 Pagamento do Desafio</Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (!paymentLoading) {
-                        setShowPaymentModal(false);
-                        setPhoneError(null);
-                      }
-                    }}
-                    disabled={paymentLoading}
-                    style={styles.modalClose}
-                  >
-                    <Ionicons name="close" size={24} color={colors.textSubtle} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Informações do desafio */}
-                <View style={styles.modalChallengeInfo}>
-                  <View style={styles.modalInfoRow}>
-                    <Text style={styles.modalInfoLabel}>Desafio</Text>
-                    <Text style={styles.modalInfoValue}>{title}</Text>
-                  </View>
-                  <View style={styles.modalInfoRow}>
-                    <Text style={styles.modalInfoLabel}>Valor</Text>
-                    <Text style={styles.modalInfoAmount}>{entryFee} MT</Text>
-                  </View>
-                  <View style={styles.modalInfoRow}>
-                    <Text style={styles.modalInfoLabel}>Prémio</Text>
-                    <Text style={styles.modalInfoValue}>{challengeInfo?.prize}</Text>
-                  </View>
-                </View>
-
-                {/* Campo de telefone - ADICIONADO */}
-                <View style={styles.phoneInputContainer}>
-                  <Text style={styles.phoneInputLabel}>📱 Número M-Pesa</Text>
-                  <TextInput
-                    style={[styles.phoneInput, phoneError && styles.phoneInputError]}
-                    placeholder="84 023 7100"
-                    placeholderTextColor={colors.textSubtle}
-                    value={phoneNumber}
-                    onChangeText={(text) => {
-                      setPhoneNumber(text);
-                      setPhoneError(null);
-                    }}
-                    keyboardType="phone-pad"
-                    editable={!paymentLoading}
-                  />
-                  {phoneError && (
-                    <Text style={styles.phoneInputErrorText}>{phoneError}</Text>
-                  )}
-                  <Text style={styles.phoneInputHelper}>
-                    Insira o número associado à sua conta M-Pesa
-                  </Text>
-                </View>
-
-                {/* Benefícios */}
-                <View style={styles.modalBenefits}>
-                  <Text style={styles.modalBenefitsTitle}>Ao pagar, você terá:</Text>
-                  <View style={styles.modalBenefitItem}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                    <Text style={styles.modalBenefitText}>Participação garantida no desafio</Text>
-                  </View>
-                  <View style={styles.modalBenefitItem}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                    <Text style={styles.modalBenefitText}>Chance de ganhar o prémio</Text>
-                  </View>
-                  <View style={styles.modalBenefitItem}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                    <Text style={styles.modalBenefitText}>Visibilidade na comunidade</Text>
-                  </View>
-                </View>
-
-                {/* Botão de pagamento */}
-                <TouchableOpacity
-                  onPress={handlePayment}
-                  disabled={paymentLoading || !phoneNumber.trim()}
-                  activeOpacity={0.8}
-                  style={[
-                    styles.modalPayButton,
-                    (!phoneNumber.trim() || paymentLoading) && styles.modalPayButtonDisabled
-                  ]}
-                >
-                  <LinearGradient
-                    colors={gradients.primary}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.modalPayGradient}
-                  >
-                    {paymentLoading ? (
-                      <>
-                        <ActivityIndicator color="#fff" size="small" />
-                        <Text style={styles.modalPayText}>Processando...</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Ionicons name="card-outline" size={20} color="white" />
-                        <Text style={styles.modalPayText}>Pagar {entryFee} MT</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                {/* Botão de pagamento manual - ADICIONADO */}
-                <TouchableOpacity
-                  onPress={handleManualPayment}
-                  disabled={paymentLoading}
-                  style={styles.modalManualButton}
-                >
-                  <Text style={styles.modalManualText}>Já fiz o pagamento manualmente</Text>
-                </TouchableOpacity>
-
-                {/* Mensagem de erro */}
-                {paymentError && (
-                  <View style={styles.modalError}>
-                    <Ionicons name="alert-circle" size={18} color={colors.danger} />
-                    <Text style={styles.modalErrorText}>{paymentError}</Text>
-                  </View>
-                )}
-
-                <Text style={styles.modalTerms}>
-                  Ao pagar, você concorda com os Termos de Serviço
-                </Text>
-              </ScrollView>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </>
   );
 }
@@ -1042,32 +681,6 @@ const styles = StyleSheet.create({
     height: 16,
     backgroundColor: colors.border,
   },
-  paymentStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  paidBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  unpaidBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  paymentStatusText: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-  },
-  paidText: { color: colors.success },
-  unpaidText: { color: colors.warning },
-
   mediaTypePill: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 0.5,
@@ -1083,6 +696,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
   },
   sponsorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: 'rgba(255,40,106,0.1)',
     borderWidth: 0.5,
     borderColor: 'rgba(255,40,106,0.25)',
@@ -1091,6 +707,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignSelf: 'flex-start',
   },
+  sponsorLogo: { width: 16, height: 16, borderRadius: 4, backgroundColor: '#fff' },
   sponsorPillText: {
     color: colors.primary,
     fontSize: 11,
@@ -1202,204 +819,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnText: { color: '#fff', fontSize: 17, fontFamily: 'Inter_700Bold' },
-
-  // Erro de pagamento
-  paymentErrorContainer: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  paymentErrorText: {
-    color: colors.danger,
-    fontSize: 13,
-    flex: 1,
-    fontFamily: 'Inter_400Regular',
-  },
-
-  // Modal
-  modalContainer: { flex: 1 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    minHeight: '55%',
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: colors.borderStrong,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    fontFamily: 'Inter_700Bold',
-  },
-  modalClose: {
-    padding: 8,
-  },
-  modalChallengeInfo: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  modalInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  modalInfoLabel: {
-    color: colors.textSubtle,
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-  },
-  modalInfoValue: {
-    color: '#FFFFFF',
-    fontWeight: '500',
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-  },
-  modalInfoAmount: {
-    color: colors.primary,
-    fontWeight: 'bold',
-    fontSize: 18,
-    fontFamily: 'Inter_700Bold',
-  },
-
-  // Campo de telefone
-  phoneInputContainer: {
-    marginBottom: 16,
-  },
-  phoneInputLabel: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    marginBottom: 6,
-  },
-  phoneInput: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: 'Inter_400Regular',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  phoneInputError: {
-    borderColor: colors.danger,
-  },
-  phoneInputErrorText: {
-    color: colors.danger,
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 4,
-  },
-  phoneInputHelper: {
-    color: colors.textSubtle,
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 4,
-  },
-
-  modalBenefits: {
-    backgroundColor: 'rgba(124, 58, 237, 0.05)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  modalBenefitsTitle: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-    marginBottom: 8,
-  },
-  modalBenefitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  modalBenefitText: {
-    color: '#D1D1D8',
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
-  modalPayButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  modalPayButtonDisabled: {
-    opacity: 0.5,
-  },
-  modalPayGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  modalPayText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  modalManualButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalManualText: {
-    color: colors.textSubtle,
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    textDecorationLine: 'underline',
-  },
-  modalError: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  modalErrorText: {
-    color: colors.danger,
-    fontSize: 13,
-    flex: 1,
-    fontFamily: 'Inter_400Regular',
-  },
-  modalTerms: {
-    color: colors.textSubtle,
-    fontSize: 12,
-    textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
-  },
   previewCaptionBold: { color: '#fff', fontFamily: 'Inter_700Bold' },
 });

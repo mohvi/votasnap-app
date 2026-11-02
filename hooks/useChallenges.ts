@@ -7,11 +7,13 @@ export interface Challenge {
   title: string;
   description: string;
   category: string;
-  type: 'free' | 'paid' | 'sponsored';
-  entryFee?: number;
+  // A participação é sempre gratuita. 'paid' só existe em desafios antigos.
+  type: 'free' | 'sponsored' | 'paid';
   prize: string;
   prizeType: 'physical' | 'cash' | 'badge';
   sponsor: string;
+  sponsorId?: string | null;
+  sponsorLogo?: string | null;
   coverImage: string;
   createdBy: string;
   createdAt: number;
@@ -19,6 +21,11 @@ export interface Challenge {
   status: 'active' | 'ended' | 'cancelled' | 'pending_confirmation' | 'completed';
   totalVotes: number;
   totalParticipants: number;
+}
+
+// Desafios sem marca são da comunidade (organizados pela VotaSnap).
+export function challengeTypeLabel(type?: string): string {
+  return type === 'sponsored' ? 'Patrocinado' : 'Comunidade';
 }
 
 // Um desafio só é visível enquanto está activo E dentro do prazo. O encerramento

@@ -34,7 +34,6 @@ export const colors = {
 export const gradients = {
   primary: [colors.primary, colors.primaryEnd],
   // Categorias de desafio
-  paid: ['#7C3AED', '#A855F7'],
   free: ['#0F766E', '#14B8A6'],
   bronze: [colors.bronze, colors.bronzeDark],
 } as const;
