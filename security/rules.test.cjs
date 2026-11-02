@@ -16,12 +16,13 @@ test('private data denied to anonymous and other accounts; public profiles reada
   for (const path of ['/', 'users', 'users/alice', 'transactions', 'payment_intents']) await assertFails(anonymous.ref(path).once('value'));
   await assertFails(user.ref('users/bob').once('value'));
   await assertSucceeds(user.ref('users/alice').once('value'));
+  for (const path of ['adminAudit', 'adminNotes', 'adminNotes/alice']) await assertFails(user.ref(path).once('value'));
   const publicData = await assertSucceeds(anonymous.ref('publicProfiles/alice').once('value'));
   assert.equal(publicData.val().phone, undefined);
 });
 test('ordinary users cannot forge profiles, votes, payments, points or admins', async () => {
   const db = env.authenticatedContext('alice').database();
-  for (const path of ['users/alice/snaps', 'users/alice/admin', 'users/alice/banned', 'users/alice/paidChallenges/c', 'publicProfiles/alice', 'votes/c/alice', 'entries/c/e/votes', 'challenges/c/status', 'transactions/x', 'accountDeletionJobs/alice']) await assertFails(db.ref(path).set(true));
+  for (const path of ['users/alice/snaps', 'users/alice/admin', 'users/alice/banned', 'users/alice/bannedUntil', 'users/alice/warnings/w', 'users/alice/warningsCount', 'adminAudit/x', 'adminNotes/alice/n', 'snaps_history/alice/x', 'users/alice/paidChallenges/c', 'publicProfiles/alice', 'votes/c/alice', 'entries/c/e/votes', 'challenges/c/status', 'transactions/x', 'accountDeletionJobs/alice']) await assertFails(db.ref(path).set(true));
   await assertFails(env.unauthenticatedContext().database().ref('challenges/c').remove());
   await assertSucceeds(db.ref('users/alice').update({pushToken: 'ExponentPushToken[test]', pushTokenUpdatedAt: Date.now()}));
 });
