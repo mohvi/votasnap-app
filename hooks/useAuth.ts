@@ -10,14 +10,22 @@ export function useAuth() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       try {
-        // Check if user is banned
+        // Um banimento temporário deixa de contar quando o prazo passa,
+        // mesmo antes de um admin o levantar (as regras fazem o mesmo).
         if (u) {
-          const banSnap = await get(ref(db, `users/${u.uid}/banned`));
-          console.log('banSnap', banSnap.val());
-          
-          if (banSnap.val() === true) {
+          const [banSnap, untilSnap] = await Promise.all([
+            get(ref(db, `users/${u.uid}/banned`)),
+            get(ref(db, `users/${u.uid}/bannedUntil`)),
+          ]);
+          const until = untilSnap.val();
+          const expired = typeof until === 'number' && until <= Date.now();
+
+          if (banSnap.val() === true && !expired) {
             await signOut(auth);
-            alert('A tua conta foi suspensa. Contacte 840237100, para recorrer');
+            const untilText = typeof until === 'number'
+              ? ` até ${new Date(until).toLocaleDateString('pt-MZ')}`
+              : '';
+            alert(`A tua conta foi suspensa${untilText}. Contacte 840237100, para recorrer`);
             setUser(null);
             setLoading(false);
             return;

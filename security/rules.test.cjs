@@ -67,6 +67,42 @@ test('sponsor names are public; contacts and deals are admin-only', async () => 
   await assertSucceeds(admin.ref('challengeDeals/c').once('value'));
   await assertSucceeds(admin.ref('challengeDeals/c/paymentStatus').set('paid'));
   await assertSucceeds(admin.ref('sponsorPrivate/s/notes').set('ok'));
+  await assertFails(admin.ref('challengeDeals/c/paymentStatus').set('maybe'));
+  await assertFails(admin.ref('challengeDeals/c/amountMzn').set(-1));
+});
+test('admin writes keep Snaps, history and audit consistent', async () => {
+  const admin = env.authenticatedContext('admin', {admin:true}).database();
+  const ts = {'.sv': 'timestamp'};
+  await assertFails(admin.ref('users/alice/snaps').set(-1));
+  await assertSucceeds(admin.ref('snaps_history/alice/t1').set({amount: 5, type: 'admin_adjustment', reason: 'Bónus', by: 'admin@test'}));
+  await assertFails(admin.ref('snaps_history/alice/t1').set({amount: 500, type: 'admin_adjustment', reason: 'Bónus', by: 'admin@test'}));
+  await assertFails(admin.ref('snaps_history/alice/t2').set({amount: 5, type: 'admin_adjustment'}));
+  await assertSucceeds(admin.ref('adminAudit/a1').set({action: 'user.snaps', by: {uid: 'admin'}, at: ts}));
+  await assertFails(admin.ref('adminAudit/a1').set({action: 'edited', by: {uid: 'admin'}, at: ts}));
+  await assertFails(admin.ref('adminAudit/a2').set({action: 'user.ban', by: {uid: 'someone-else'}, at: ts}));
+  await assertFails(admin.ref('adminAudit/a3').set({action: 'user.ban', by: {uid: 'admin'}, at: 1}));
+  await assertFails(admin.ref('users/alice/warnings/w0').set({reason: 'ok', createdAt: 1}));
+  await assertSucceeds(admin.ref('users/alice/warnings/w').set({reason: 'Fora do tema', createdAt: 1}));
+  await assertFails(admin.ref('users/alice/warnings/w').set({reason: 'Motivo alterado', createdAt: 1}));
+});
+test('a tie can only be resolved once', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('challenges/t').set({status: 'pending_confirmation', isTie: true});
+  });
+  const admin = env.authenticatedContext('admin', {admin:true}).database();
+  const resolve = (uid) => admin.ref().update({'challenges/t/winnerId': uid, 'challenges/t/isTie': false, 'challenges/t/tieResolvedAt': {'.sv': 'timestamp'}, [`users/${uid}/wins`]: 1});
+  await assertSucceeds(resolve('alice'));
+  await assertFails(resolve('bob'));
+});
+test('timed bans stop blocking once they expire', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('users').update({
+      carol: {banned: true, bannedUntil: Date.now() - 1000},
+      dave: {banned: true, bannedUntil: Date.now() + 86400000},
+    });
+  });
+  await assertSucceeds(env.authenticatedContext('carol').database().ref('users/carol/pushToken').set('ExponentPushToken[c]'));
+  await assertFails(env.authenticatedContext('dave').database().ref('users/dave/pushToken').set('ExponentPushToken[d]'));
 });
 test('Storage enforces ownership, MIME, size, and prevents replacing published entries', async () => {
   const user = env.authenticatedContext('alice').storage('gs://demo-votasnap.appspot.com');

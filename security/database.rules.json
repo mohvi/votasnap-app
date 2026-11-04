@@ -2,25 +2,71 @@
   "rules": {
     ".read": "auth != null && auth.token.admin === true",
     ".write": "auth != null && auth.token.admin === true",
-    "publicProfiles": {".read": true},
-    "challenges": {".read": true, ".indexOn": ["status", "endsAt"]},
-    "entries": {".read": true},
-    "votes": {".read": true},
-    "sponsors": {".read": true},
+    "publicProfiles": {
+      ".read": true
+    },
+    "challenges": {
+      ".read": true,
+      ".indexOn": [
+        "status",
+        "endsAt"
+      ],
+      "$challenge": {
+        "tieResolvedAt": {
+          ".validate": "data.val() === newData.val() || (!data.exists() && data.parent().child('isTie').val() === true && data.parent().child('status').val() === 'pending_confirmation')"
+        },
+        "confirmedAt": {
+          ".validate": "!data.exists() || data.val() === newData.val()"
+        }
+      }
+    },
+    "entries": {
+      ".read": true
+    },
+    "votes": {
+      ".read": true
+    },
+    "sponsors": {
+      ".read": true
+    },
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "pushToken": {
-          ".write": "auth != null && auth.uid === $uid && data.parent().child('banned').val() !== true && !data.parent().child('deletionRequestedAt').exists()",
+          ".write": "auth != null && auth.uid === $uid && !(data.parent().child('banned').val() === true && !(data.parent().child('bannedUntil').isNumber() && data.parent().child('bannedUntil').val() <= now)) && !data.parent().child('deletionRequestedAt').exists()",
           ".validate": "newData.isString() && newData.val().length <= 250"
         },
         "pushTokenUpdatedAt": {
-          ".write": "auth != null && auth.uid === $uid && data.parent().child('banned').val() !== true && !data.parent().child('deletionRequestedAt').exists()",
+          ".write": "auth != null && auth.uid === $uid && !(data.parent().child('banned').val() === true && !(data.parent().child('bannedUntil').isNumber() && data.parent().child('bannedUntil').val() <= now)) && !data.parent().child('deletionRequestedAt').exists()",
           ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+        },
+        "snaps": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "bannedUntil": {
+          ".validate": "newData.isNumber()"
+        },
+        "banReason": {
+          ".validate": "newData.isString() && newData.val().length <= 500"
+        },
+        "warningsCount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "warnings": {
+          "$warning": {
+            ".validate": "(!data.exists() || data.val() === newData.val()) && newData.hasChildren(['reason', 'createdAt']) && newData.child('reason').isString() && newData.child('reason').val().length >= 5 && newData.child('reason').val().length <= 1000"
+          }
         }
       }
     },
-    "snaps_history": {"$uid": {".read": "auth != null && auth.uid === $uid"}},
+    "snaps_history": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$tx": {
+          ".validate": "(!data.exists() || data.val() === newData.val()) && newData.hasChildren(['amount']) && newData.child('amount').isNumber() && (newData.child('type').val() !== 'admin_adjustment' || (newData.child('reason').isString() && newData.child('reason').val().length >= 3 && newData.child('by').isString()))"
+        }
+      }
+    },
     "blocks": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
@@ -32,13 +78,48 @@
     },
     "reports": {
       "$report": {
-        ".write": "auth != null && !data.exists() && newData.child('reportedBy').val() === auth.uid && root.child('users').child(auth.uid).child('banned').val() !== true",
+        ".write": "auth != null && !data.exists() && newData.child('reportedBy').val() === auth.uid && !(root.child('users').child(auth.uid).child('banned').val() === true && !(root.child('users').child(auth.uid).child('bannedUntil').isNumber() && root.child('users').child(auth.uid).child('bannedUntil').val() <= now))",
         ".validate": "auth.token.admin === true || newData.hasChildren(['entryId', 'challengeId', 'reportedBy', 'reason', 'status', 'createdAt'])",
-        "reportedBy": {".validate": "auth.token.admin === true || (newData.isString() && newData.val() === auth.uid)"},
-        "reason": {".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000"},
-        "status": {".validate": "auth.token.admin === true || newData.val() === 'pending'"},
-        "createdAt": {".validate": "newData.isNumber() && newData.val() <= now + 60000"},
-        "$field": {".validate": "auth.token.admin === true || (newData.isString() && newData.val().length <= 2500)"}
+        "reportedBy": {
+          ".validate": "auth.token.admin === true || (newData.isString() && newData.val() === auth.uid)"
+        },
+        "reason": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000"
+        },
+        "status": {
+          ".validate": "auth.token.admin === true || newData.val() === 'pending'"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+        },
+        "$field": {
+          ".validate": "auth.token.admin === true || (newData.isString() && newData.val().length <= 2500)"
+        }
+      }
+    },
+    "challengeDeals": {
+      "$challenge": {
+        "amountMzn": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "paymentStatus": {
+          ".validate": "newData.val() === 'pending' || newData.val() === 'paid'"
+        },
+        "paidAt": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+    "adminAudit": {
+      "$entry": {
+        ".validate": "!data.exists() && newData.hasChildren(['action', 'by', 'at']) && newData.child('action').isString() && newData.child('by').child('uid').val() === auth.uid && newData.child('at').val() === now"
+      }
+    },
+    "adminNotes": {
+      "$uid": {
+        "$note": {
+          ".validate": "newData.hasChildren(['text', 'createdAt']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 2000"
+        }
       }
     }
   }
