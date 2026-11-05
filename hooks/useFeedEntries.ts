@@ -1,8 +1,8 @@
-import { onValue, ref } from 'firebase/database';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { auth, db } from '../services/firebase';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { auth } from '../services/firebase';
 import { useBlockedUsers } from './BlockedUsersProvider';
 import { isChallengeOpen, useNow } from './useChallenges';
+import { useChallengesScope, useEntriesFor, useMyVotes, useProfiles } from './useScopedData';
 
 export interface FeedEntry {
   id: string;
@@ -28,20 +28,17 @@ export function useFeedEntries() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Snapshots brutos vindos do Firebase, mantidos em estado próprio
-  const [challenges, setChallenges] = useState<Record<string, any>>({});
-  const [users, setUsers] = useState<Record<string, any>>({});
-  const [entriesByChallenge, setEntriesByChallenge] = useState<Record<string, any>>({});
-  const [votesByChallenge, setVotesByChallenge] = useState<Record<string, any>>({});
-
-  const [challengesLoaded, setChallengesLoaded] = useState(false);
+  // Só desafios activos, as suas publicações e o voto do próprio utilizador.
+  const { challenges, loaded: challengesLoaded } = useChallengesScope('active');
+  const challengeIds = useMemo(() => Object.keys(challenges), [challenges]);
+  const { entries: entriesByChallenge, loaded: entriesLoaded } = useEntriesFor(challengeIds);
+  const { votes: userVotes, loaded: votesLoaded } = useMyVotes(challengeIds);
+  const authorIds = useMemo(
+    () => Object.values<any>(entriesByChallenge).flatMap(list => Object.values<any>(list || {}).map(e => e?.userId).filter(Boolean)),
+    [entriesByChallenge],
+  );
+  const users = useProfiles(authorIds);
   const now = useNow(Object.values<any>(challenges).map(c => c?.endsAt));
-  const [usersLoaded, setUsersLoaded] = useState(false);
-  const [entriesLoaded, setEntriesLoaded] = useState(false);
-  const [votesLoaded, setVotesLoaded] = useState(false);
-
-  // Mapa: challengeId -> entryId em que o utilizador atual votou (fonte única de verdade)
-  const [userVotes, setUserVotes] = useState<Record<string, string>>({});
 
   const shuffle = <T,>(arr: T[]): T[] => {
     const copy = [...arr];
@@ -55,98 +52,10 @@ export function useFeedEntries() {
   const shuffledOnceRef = useRef(false);
   const orderRef = useRef<{ all: string[]; fresh: string[] }>({ all: [], fresh: [] });
 
-  // --- Listeners em tempo real ---
-
-  useEffect(() => {
-    const challengesRef = ref(db, 'challenges');
-    const unsubscribe = onValue(
-      challengesRef,
-      snap => {
-        setChallenges(snap.exists() ? snap.val() : {});
-        setChallengesLoaded(true);
-      },
-      error => {
-        console.error('Erro ao escutar challenges:', error);
-        setChallengesLoaded(true);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const usersRef = ref(db, 'publicProfiles');
-    const unsubscribe = onValue(
-      usersRef,
-      snap => {
-        setUsers(snap.exists() ? snap.val() : {});
-        setUsersLoaded(true);
-      },
-      error => {
-        console.error('Erro ao escutar users:', error);
-        setUsersLoaded(true);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
-
-  // Nó "entries" inteiro — é aqui que os votos mudam, por isso precisa de ser tempo real
-  useEffect(() => {
-    const entriesRef = ref(db, 'entries');
-    const unsubscribe = onValue(
-      entriesRef,
-      snap => {
-        setEntriesByChallenge(snap.exists() ? snap.val() : {});
-        setEntriesLoaded(true);
-      },
-      error => {
-        console.error('Erro ao escutar entries:', error);
-        setEntriesLoaded(true);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
-
-  // Nó "votes" inteiro — usado para saber em que o utilizador atual já votou,
-  // e também para bloquear votos duplicados no mesmo desafio
-  useEffect(() => {
-    const votesRef = ref(db, 'votes');
-    const unsubscribe = onValue(
-      votesRef,
-      snap => {
-        setVotesByChallenge(snap.exists() ? snap.val() : {});
-        setVotesLoaded(true);
-      },
-      error => {
-        console.error('Erro ao escutar votes:', error);
-        setVotesLoaded(true);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
-
-  // --- Recalcular userVotes sempre que o nó votes muda ---
-
-  useEffect(() => {
-    if (!votesLoaded) return;
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid) {
-      setUserVotes({});
-      return;
-    }
-    const votes: Record<string, string> = {};
-    for (const [challengeId, challengeVotes] of Object.entries<any>(votesByChallenge)) {
-      const myVote = challengeVotes?.[currentUid];
-      if (myVote?.entryId) {
-        votes[challengeId] = myVote.entryId;
-      }
-    }
-    setUserVotes(votes);
-  }, [votesByChallenge, votesLoaded]);
-
   // --- Recalcular fresh/all sempre que algum dos nós muda ---
 
   useEffect(() => {
-    if (!challengesLoaded || !usersLoaded || !entriesLoaded || !votesLoaded) {
+    if (!challengesLoaded || !entriesLoaded || !votesLoaded) {
       return;
     }
 
@@ -157,7 +66,7 @@ export function useFeedEntries() {
     for (const [challengeId, challenge] of Object.entries<any>(challenges)) {
       if (!isChallengeOpen(challenge, now)) continue;
 
-      const alreadyVoted = !!(currentUid && votesByChallenge?.[challengeId]?.[currentUid]);
+      const alreadyVoted = !!userVotes[challengeId];
       const entries = entriesByChallenge?.[challengeId];
       if (!entries) continue;
 
@@ -241,7 +150,7 @@ export function useFeedEntries() {
 
     setLoading(false);
     setRefreshing(false);
-  }, [challenges, users, entriesByChallenge, votesByChallenge, challengesLoaded, usersLoaded, entriesLoaded, votesLoaded, now]);
+  }, [challenges, users, entriesByChallenge, userVotes, challengesLoaded, entriesLoaded, votesLoaded, now]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);

@@ -5,6 +5,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
+import { markActive } from '../services/activity';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from 'sonner-native';
@@ -30,6 +32,18 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
+
+  // Marca a última actividade ao entrar e sempre que a app volta ao primeiro
+  // plano (no máximo uma escrita a cada 30 min). O painel usa-a para medir
+  // utilizadores activos, incluindo quem só vê o feed.
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, user => { if (user) markActive(user.uid); });
+    const sub = AppState.addEventListener('change', state => {
+      const uid = auth.currentUser?.uid;
+      if (state === 'active' && uid) markActive(uid);
+    });
+    return () => { unsubAuth(); sub.remove(); };
+  }, []);
 
   // Registar push token quando utilizador faz login
   useEffect(() => {

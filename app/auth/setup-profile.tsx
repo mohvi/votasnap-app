@@ -2,7 +2,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { get, ref } from 'firebase/database';
+import { equalTo, get, orderByChild, query, ref } from 'firebase/database';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { useEffect, useState } from 'react';
 import {
@@ -33,34 +33,19 @@ export default function SetupProfileScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'checking' | 'available' | 'taken' | 'invalid' | 'error' | null>(null);
-  const [existingUsernames, setExistingUsernames] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [showAgeModal, setShowAgeModal] = useState(false);
 
   const isValidUsername = (u: string) =>
     /^[a-z0-9_.]{3,20}$/.test(u);
 
-  // Carregar usernames existentes
-  useEffect(() => {
-    const fetchExistingUsernames = async () => {
-      try {
-        const usersRef = ref(db, 'publicProfiles');
-        const snapshot = await get(usersRef);
-
-        if (snapshot.exists()) {
-          const usersData = snapshot.val();
-          const usernames = Object.values(usersData)
-            .map((user: any) => user.username)
-            .filter(Boolean);
-          setExistingUsernames(usernames);
-        }
-      } catch (error) {
-        console.error('Error fetching usernames:', error);
-      }
-    };
-
-    fetchExistingUsernames();
-  }, []);
+  // Pergunta só pelo username escolhido (índice em publicProfiles/username),
+  // em vez de descarregar todos os perfis ao abrir o ecrã.
+  const isUsernameTaken = async (name: string) => {
+    const snap = await get(query(ref(db, 'publicProfiles'), orderByChild('username'), equalTo(name)));
+    const uid = auth.currentUser?.uid;
+    return Object.keys(snap.val() || {}).some(owner => owner !== uid);
+  };
 
   // Atualizar cidades quando província mudar
   useEffect(() => {
@@ -94,10 +79,7 @@ export default function SetupProfileScreen() {
     setError('');
 
     try {
-      const normalizedUsername = normalizeUsername(usernameTrimmed);
-      const normalizedExisting = existingUsernames.map(u => normalizeUsername(u));
-
-      const isAvailable = !normalizedExisting.includes(normalizedUsername);
+      const isAvailable = !(await isUsernameTaken(normalizeUsername(usernameTrimmed)));
 
       setUsernameStatus(isAvailable ? 'available' : 'taken');
       if (!isAvailable) {
@@ -189,9 +171,7 @@ export default function SetupProfileScreen() {
 
       // Verificar username novamente antes de salvar
       const normalizedUsername = normalizeUsername(username);
-      const normalizedExisting = existingUsernames.map(u => normalizeUsername(u));
-
-      if (normalizedExisting.includes(normalizedUsername)) {
+      if (await isUsernameTaken(normalizedUsername)) {
         throw new Error('Este username já foi escolhido por outro utilizador');
       }
 

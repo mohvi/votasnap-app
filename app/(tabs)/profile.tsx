@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { get, onValue, ref } from 'firebase/database';
+import { equalTo, get, onValue, orderByChild, query, ref } from 'firebase/database';
 import { authenticatedRequest } from '../../services/api';
 import { useEffect, useState } from 'react';
 import {
@@ -87,20 +87,13 @@ export default function ProfileScreen() {
 
       await Promise.all(
         Object.entries(challenges).map(async ([challengeId, challenge]: [string, any]) => {
-          const entriesSnap = await get(ref(db, `entries/${challengeId}`));
+          // Só as publicações deste utilizador (índice entries/{desafio}/userId).
+          const entriesSnap = await get(query(ref(db, `entries/${challengeId}`), orderByChild('userId'), equalTo(uid)));
           if (!entriesSnap.exists()) return;
-          const allChallengeEntries = entriesSnap.val();
-
+          const ownEntries = entriesSnap.val();
           const isFinished = challenge?.status !== 'active';
-          let maxVotes = -1;
-          if (isFinished) {
-            for (const e of Object.values<any>(allChallengeEntries)) {
-              if ((e.votes || 0) > maxVotes) maxVotes = e.votes || 0;
-            }
-          }
 
-          Object.entries(allChallengeEntries).forEach(([entryId, entry]: [string, any]) => {
-            if (entry.userId !== uid) return;
+          Object.entries(ownEntries).forEach(([entryId, entry]: [string, any]) => {
             const votes = entry.votes || 0;
             userEntries.push({
               id: entryId,
@@ -116,7 +109,8 @@ export default function ProfileScreen() {
               caption: entry.caption ?? '',
               votes,
               createdAt: entry.createdAt || Date.now(),
-              isWinner: isFinished && votes === maxVotes && maxVotes > 0,
+              // O servidor grava o vencedor ao processar o desafio.
+              isWinner: isFinished && challenge?.winnerEntryId === entryId,
             });
           });
         })

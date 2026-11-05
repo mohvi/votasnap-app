@@ -3,7 +3,10 @@
     ".read": "auth != null && auth.token.admin === true",
     ".write": "auth != null && auth.token.admin === true",
     "publicProfiles": {
-      ".read": true
+      ".read": true,
+      ".indexOn": [
+        "username"
+      ]
     },
     "challenges": {
       ".read": true,
@@ -21,10 +24,19 @@
       }
     },
     "entries": {
-      ".read": true
+      ".read": true,
+      "$challenge": {
+        ".indexOn": [
+          "userId"
+        ]
+      }
     },
     "votes": {
-      ".read": true
+      "$challenge": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid"
+        }
+      }
     },
     "sponsors": {
       ".read": true
@@ -56,6 +68,10 @@
           "$warning": {
             ".validate": "(!data.exists() || data.val() === newData.val()) && newData.hasChildren(['reason', 'createdAt']) && newData.child('reason').isString() && newData.child('reason').val().length >= 5 && newData.child('reason').val().length <= 1000"
           }
+        },
+        "lastLogin": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.val() === now"
         }
       }
     },

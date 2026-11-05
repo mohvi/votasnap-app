@@ -1,7 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { onValue, ref } from 'firebase/database';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,9 +11,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
 import { isChallengeOpen, useNow } from '../../hooks/useChallenges';
+import { useChallengesScope, useEntriesFor, useProfiles } from '../../hooks/useScopedData';
 
 interface RankEntry {
   id: string;
@@ -45,21 +44,19 @@ export default function RankingScreen() {
   const [selectedChallenge, setSelectedChallenge] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
-  const [liveChallenges, setLiveChallenges] = useState<Record<string, any> | null>(null);
-  const [liveEntries, setLiveEntries] = useState<Record<string, any> | null>(null);
-  const [liveProfiles, setLiveProfiles] = useState<Record<string, any> | null>(null);
-  const now = useNow(Object.values<any>(liveChallenges || {}).map(c => c?.endsAt));
-  useEffect(() => {
-    const unsubscribes = [
-      onValue(ref(db, 'challenges'), snap => setLiveChallenges(snap.val() || {})),
-      onValue(ref(db, 'entries'), snap => setLiveEntries(snap.val() || {})),
-      onValue(ref(db, 'publicProfiles'), snap => setLiveProfiles(snap.val() || {})),
-    ];
-    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
-  }, []);
+  // Só desafios activos e as respectivas publicações; perfis pedidos por autor.
+  const { challenges: liveChallenges, loaded: challengesLoaded } = useChallengesScope('active');
+  const challengeIds = useMemo(() => Object.keys(liveChallenges), [liveChallenges]);
+  const { entries: liveEntries, loaded: entriesLoaded } = useEntriesFor(challengeIds);
+  const authorIds = useMemo(
+    () => Object.values<any>(liveEntries).flatMap(list => Object.values<any>(list || {}).map(e => e?.userId).filter(Boolean)),
+    [liveEntries],
+  );
+  const liveProfiles = useProfiles(authorIds);
+  const now = useNow(Object.values<any>(liveChallenges).map(c => c?.endsAt));
 
   useEffect(() => {
-    if (!liveChallenges || !liveEntries || !liveProfiles) return;
+    if (!challengesLoaded || !entriesLoaded) return;
     const active = Object.entries(liveChallenges)
       .filter(([, challenge]) => isChallengeOpen(challenge, now))
       .map(([id, challenge]) => ({ ...challenge, id }));
@@ -77,7 +74,7 @@ export default function RankingScreen() {
     entries.sort((a, b) => b.votes - a.votes);
     setTopEntries(entries);
     setLoading(false);
-  }, [liveChallenges, liveEntries, liveProfiles, selectedChallenge, now]);
+  }, [liveChallenges, liveEntries, liveProfiles, challengesLoaded, entriesLoaded, selectedChallenge, now]);
 
   const filtered = selectedChallenge === 'all'
     ? topEntries

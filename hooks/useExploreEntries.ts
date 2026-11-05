@@ -1,8 +1,7 @@
-import { onValue, ref } from 'firebase/database';
-import { useEffect, useRef, useState } from 'react';
-import { auth, db } from '../services/firebase';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FeedEntry } from './useFeedEntries';
 import { useBlockedUsers } from './BlockedUsersProvider';
+import { useChallengesScope, useEntriesFor, useMyVotes, useProfiles } from './useScopedData';
 
 function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -18,77 +17,26 @@ export function useExploreEntries() {
   const [allEntries, setAllEntries] = useState<FeedEntry[]>([]); // "Geral" — todos, embaralhados
   const [winnerEntries, setWinnerEntries] = useState<FeedEntry[]>([]); // "Vencedores" — 1 por desafio terminado
   const [loading, setLoading] = useState(true);
-  const [userVotes, setUserVotes] = useState<Record<string, string>>({});
 
-  const [challenges, setChallenges] = useState<Record<string, any>>({});
-  const [users, setUsers] = useState<Record<string, any>>({});
-  const [entriesByChallenge, setEntriesByChallenge] = useState<Record<string, any>>({});
-  const [votesByChallenge, setVotesByChallenge] = useState<Record<string, any>>({});
-
-  const [challengesLoaded, setChallengesLoaded] = useState(false);
-  const [usersLoaded, setUsersLoaded] = useState(false);
-  const [entriesLoaded, setEntriesLoaded] = useState(false);
-  const [votesLoaded, setVotesLoaded] = useState(false);
+  // Os últimos 30 desafios (activos e terminados) chegam para "Geral" e
+  // "Vencedores"; desafios antigos deixam de ser descarregados a cada abertura.
+  const { challenges, loaded: challengesLoaded } = useChallengesScope('recent', 30);
+  const challengeIds = useMemo(() => Object.keys(challenges), [challenges]);
+  const { entries: entriesByChallenge, loaded: entriesLoaded } = useEntriesFor(challengeIds);
+  const { votes: userVotes, loaded: votesLoaded } = useMyVotes(challengeIds);
+  const authorIds = useMemo(
+    () => Object.values<any>(entriesByChallenge).flatMap(list => Object.values<any>(list || {}).map(e => e?.userId).filter(Boolean)),
+    [entriesByChallenge],
+  );
+  const users = useProfiles(authorIds);
 
   const shuffledOnceRef = useRef(false);
   const orderRef = useRef<string[]>([]);
 
-  // --- Listeners em tempo real (mesmo padrão do useFeedEntries) ---
-
-  useEffect(() => {
-    const unsub = onValue(
-      ref(db, 'challenges'),
-      snap => { setChallenges(snap.exists() ? snap.val() : {}); setChallengesLoaded(true); },
-      () => setChallengesLoaded(true)
-    );
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    const unsub = onValue(
-      ref(db, 'publicProfiles'),
-      snap => { setUsers(snap.exists() ? snap.val() : {}); setUsersLoaded(true); },
-      () => setUsersLoaded(true)
-    );
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    const unsub = onValue(
-      ref(db, 'entries'),
-      snap => { setEntriesByChallenge(snap.exists() ? snap.val() : {}); setEntriesLoaded(true); },
-      () => setEntriesLoaded(true)
-    );
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    const unsub = onValue(
-      ref(db, 'votes'),
-      snap => { setVotesByChallenge(snap.exists() ? snap.val() : {}); setVotesLoaded(true); },
-      () => setVotesLoaded(true)
-    );
-    return () => unsub();
-  }, []);
-
-  // --- Voto do utilizador por desafio (para toggle de like dentro do viewer) ---
-
-  useEffect(() => {
-    if (!votesLoaded) return;
-    const currentUid = auth.currentUser?.uid;
-    if (!currentUid) { setUserVotes({}); return; }
-    const votes: Record<string, string> = {};
-    for (const [challengeId, challengeVotes] of Object.entries<any>(votesByChallenge)) {
-      const myVote = challengeVotes?.[currentUid];
-      if (myVote?.entryId) votes[challengeId] = myVote.entryId;
-    }
-    setUserVotes(votes);
-  }, [votesByChallenge, votesLoaded]);
-
   // --- Recalcular allEntries / winnerEntries ---
 
   useEffect(() => {
-    if (!challengesLoaded || !usersLoaded || !entriesLoaded || !votesLoaded) return;
+    if (!challengesLoaded || !entriesLoaded || !votesLoaded) return;
 
     const all: FeedEntry[] = [];
     const winners: FeedEntry[] = [];
@@ -162,7 +110,7 @@ export function useExploreEntries() {
 
     setWinnerEntries(sortedWinners);
     setLoading(false);
-  }, [challenges, users, entriesByChallenge, votesByChallenge, challengesLoaded, usersLoaded, entriesLoaded, votesLoaded]);
+  }, [challenges, users, entriesByChallenge, challengesLoaded, entriesLoaded, votesLoaded]);
 
   return { allEntries: allEntries.filter(e => !blocked.includes(e.userId)),
     winnerEntries: winnerEntries.filter(e => !blocked.includes(e.userId)), loading, userVotes };

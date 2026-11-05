@@ -94,6 +94,18 @@ test('a tie can only be resolved once', async () => {
   await assertSucceeds(resolve('alice'));
   await assertFails(resolve('bob'));
 });
+test('votes are private to the voter; lastLogin only takes server time', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('votes/c').set({alice: {entryId: 'e'}, bob: {entryId: 'e'}});
+  });
+  const alice = env.authenticatedContext('alice').database();
+  await assertSucceeds(alice.ref('votes/c/alice').once('value'));
+  for (const path of ['votes', 'votes/c', 'votes/c/bob']) await assertFails(alice.ref(path).once('value'));
+  await assertFails(env.unauthenticatedContext().database().ref('votes/c/alice').once('value'));
+  await assertSucceeds(alice.ref('users/alice/lastLogin').set({'.sv': 'timestamp'}));
+  await assertFails(alice.ref('users/alice/lastLogin').set(1));
+  await assertFails(alice.ref('users/bob/lastLogin').set({'.sv': 'timestamp'}));
+});
 test('timed bans stop blocking once they expire', async () => {
   await env.withSecurityRulesDisabled(async context => {
     await context.database().ref('users').update({
