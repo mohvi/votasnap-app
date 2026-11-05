@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Linking, Platform } from 'react-native';
 import { auth, db } from './firebase';
+import { reportEvent } from './notifications';
 
 // Desafio "Convida amigos". Não há passos manuais: o convidado é atribuído
 // automaticamente por uma destas vias, por ordem de prioridade:
@@ -192,6 +193,7 @@ export async function claimInviteAttribution(): Promise<string | null> {
       [`inviteProgress/${campaign.id}/${inviterUid}/updatedAt`]: serverTimestamp(),
     });
     await AsyncStorage.removeItem(PENDING_KEY);
+    reportEvent({ type: 'invite', campaignId: campaign.id });
     return inviterUid;
   } catch {
     // Conta antiga, número já usado ou campanha fechada: as regras recusam.

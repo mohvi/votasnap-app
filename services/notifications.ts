@@ -82,3 +82,24 @@ export function notificationRoute(data: Record<string, unknown> | undefined): st
   if (typeof data?.challengeId === 'string') return `/challenge/${data.challengeId}`;
   return null;
 }
+
+// Avisa o servidor (Vercel /api/notify) de um evento que pode gerar uma
+// notificação para outra pessoa. O servidor confirma o evento na base de
+// dados; aqui nunca se espera nem se mostram erros.
+const NOTIFY_URL = `${(process.env.EXPO_PUBLIC_SITE_URL || 'https://votasnap.vercel.app').replace(/\/$/, '')}/api/notify`;
+
+export type NotifyEvent =
+  | { type: 'vote'; challengeId: string; entryId: string }
+  | { type: 'invite'; campaignId: string };
+
+export function reportEvent(event: NotifyEvent): void {
+  const user = auth.currentUser;
+  if (!user) return;
+  user.getIdToken()
+    .then(token => fetch(NOTIFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(event),
+    }))
+    .catch(() => undefined);
+}
