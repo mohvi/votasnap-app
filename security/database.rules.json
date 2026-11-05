@@ -137,6 +137,76 @@
           ".validate": "newData.hasChildren(['text', 'createdAt']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 2000"
         }
       }
+    },
+    "inviteCampaigns": {
+      ".read": true,
+      ".indexOn": [
+        "status"
+      ]
+    },
+    "invitedPhones": {
+      "$campaign": {
+        "$phone": {
+          ".read": "auth != null && $phone === auth.token.phone_number.replace('+', '')",
+          ".write": "auth != null && !data.exists() && root.child('inviteCampaigns').child($campaign).child('status').val() === 'active' && root.child('inviteCampaigns').child($campaign).child('endsAt').val() > now && $phone.matches(/^258[0-9]{9}$/) && auth.token.phone_number != null && $phone !== auth.token.phone_number.replace('+', '')",
+          ".validate": "newData.child('inviterUid').val() === auth.uid && newData.child('at').val() === now && newData.parent().parent().parent().child('inviteSent').child($campaign).child(auth.uid).child($phone).exists()"
+        }
+      }
+    },
+    "inviteSent": {
+      "$campaign": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          "$phone": {
+            ".write": "auth != null && auth.uid === $uid && !data.exists()",
+            ".validate": "newData.parent().parent().parent().parent().child('invitedPhones').child($campaign).child($phone).child('inviterUid').val() === auth.uid && newData.parent().parent().parent().parent().child('inviteSentCount').child($campaign).child(auth.uid).val() <= 200 && ((!root.child('inviteSentCount').child($campaign).child(auth.uid).exists() && newData.parent().parent().parent().parent().child('inviteSentCount').child($campaign).child(auth.uid).val() === 1) || newData.parent().parent().parent().parent().child('inviteSentCount').child($campaign).child(auth.uid).val() === root.child('inviteSentCount').child($campaign).child(auth.uid).val() + 1)"
+          }
+        }
+      }
+    },
+    "inviteSentCount": {
+      "$campaign": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))"
+        }
+      }
+    },
+    "inviteAttributions": {
+      "$campaign": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && !data.exists()",
+          ".validate": "root.child('inviteCampaigns').child($campaign).child('status').val() === 'active' && root.child('inviteCampaigns').child($campaign).child('endsAt').val() > now && newData.hasChildren(['inviterUid', 'at', 'via']) && newData.child('inviterUid').val() !== auth.uid && root.child('publicProfiles').child(newData.child('inviterUid').val()).child('username').exists() && root.child('publicProfiles').child(auth.uid).child('username').exists() && root.child('users').child(auth.uid).child('createdAt').val() >= root.child('inviteCampaigns').child($campaign).child('startsAt').val() && auth.token.phone_number != null && (!root.child('invitedPhones').child($campaign).child(auth.token.phone_number.replace('+', '')).exists() || root.child('invitedPhones').child($campaign).child(auth.token.phone_number.replace('+', '')).child('inviterUid').val() === newData.child('inviterUid').val()) && newData.child('at').val() === now && newData.parent().parent().parent().child('invitePhonesUsed').child(auth.token.phone_number.replace('+', '')).val() === $campaign && newData.parent().parent().parent().child('inviteProgress').child($campaign).child(newData.child('inviterUid').val()).child('count').exists()"
+        }
+      }
+    },
+    "invitePhonesUsed": {
+      "$phone": {
+        ".write": "auth != null && !data.exists() && $phone === auth.token.phone_number.replace('+', '')",
+        ".validate": "newData.isString() && newData.parent().parent().child('inviteAttributions').child(newData.val()).child(auth.uid).exists()"
+      }
+    },
+    "inviteProgress": {
+      ".read": true,
+      "$campaign": {
+        ".indexOn": [
+          "count"
+        ],
+        "$inviter": {
+          ".write": "auth != null",
+          "count": {
+            ".validate": "auth.token.admin === true || (newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1)) && newData.parent().parent().parent().parent().child('inviteAttributions').child($campaign).child(auth.uid).child('inviterUid').val() === $inviter && !root.child('inviteAttributions').child($campaign).child(auth.uid).exists())"
+          },
+          "updatedAt": {
+            ".validate": "auth.token.admin === true || newData.val() === now"
+          },
+          "$other": {
+            ".validate": "auth.token.admin === true"
+          }
+        }
+      }
     }
   }
 }

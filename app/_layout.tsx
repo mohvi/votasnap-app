@@ -7,6 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { markActive } from '../services/activity';
+import { captureInstallReferrer, claimInviteAttribution } from '../services/invites';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from 'sonner-native';
@@ -37,7 +38,13 @@ export default function RootLayout() {
   // plano (no máximo uma escrita a cada 30 min). O painel usa-a para medir
   // utilizadores activos, incluindo quem só vê o feed.
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, user => { if (user) markActive(user.uid); });
+    // Código de convite vindo da Play Store (só na primeira abertura).
+    captureInstallReferrer();
+    const unsubAuth = onAuthStateChanged(auth, user => {
+      if (!user) return;
+      markActive(user.uid);
+      claimInviteAttribution();
+    });
     const sub = AppState.addEventListener('change', state => {
       const uid = auth.currentUser?.uid;
       if (state === 'active' && uid) markActive(uid);
@@ -124,6 +131,8 @@ useEffect(() => {
         <Stack.Screen name="challenge/submit" />
         <Stack.Screen name="challenge/vote" />
         <Stack.Screen name="entry/[challengeId]/[entryId]" />
+        <Stack.Screen name="invite/[code]" />
+        <Stack.Screen name="invite-friends" />
       </Stack>
       <Toaster theme="dark" position="top-center" richColors />
     </GestureHandlerRootView>

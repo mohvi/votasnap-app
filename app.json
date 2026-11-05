@@ -44,12 +44,21 @@
               "pathPrefix": "/entry"
             },
             {
+              "scheme": "https",
+              "host": "votasnap.vercel.app",
+              "pathPrefix": "/invite"
+            },
+            {
               "scheme": "votasnap",
               "host": "entry"
             },
             {
               "scheme": "votasnap",
               "host": "challenge"
+            },
+            {
+              "scheme": "votasnap",
+              "host": "invite"
             }
           ],
           "category": [

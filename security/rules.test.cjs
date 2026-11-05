@@ -106,6 +106,49 @@ test('votes are private to the voter; lastLogin only takes server time', async (
   await assertFails(alice.ref('users/alice/lastLogin').set(1));
   await assertFails(alice.ref('users/bob/lastLogin').set({'.sv': 'timestamp'}));
 });
+test('invites: first inviter keeps the number; only new, complete accounts count once', async () => {
+  const start = Date.now() - 1000;
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref().update({
+      'inviteCampaigns/k': { status: 'active', startsAt: start, endsAt: Date.now() + 86400000, goal: 3, minimum: 1 },
+      'publicProfiles/ina': { username: 'ina' }, 'publicProfiles/zed': { username: 'zed' },
+      'publicProfiles/neo': { username: 'neo' }, 'publicProfiles/old': { username: 'old' },
+      'users/neo': { createdAt: Date.now() }, 'users/old': { createdAt: start - 86400000 },
+    });
+  });
+  const ts = {'.sv': 'timestamp'};
+  const inc = {'.sv': {increment: 1}};
+  const as = (uid, phone) => env.authenticatedContext(uid, { phone_number: phone }).database();
+  const ina = as('ina', '+258840000001');
+  const zed = as('zed', '+258840000002');
+  const neo = as('neo', '+258841111111');
+  const old = as('old', '+258842222222');
+  const invite = (db, uid, phone) => db.ref().update({
+    [`invitedPhones/k/${phone}`]: { inviterUid: uid, at: ts },
+    [`inviteSent/k/${uid}/${phone}`]: { at: ts },
+    [`inviteSentCount/k/${uid}`]: inc,
+  });
+  const attribute = (db, uid, phone, inviterUid) => db.ref().update({
+    [`inviteAttributions/k/${uid}`]: { inviterUid, at: ts, via: 'phone' },
+    [`invitePhonesUsed/${phone}`]: 'k',
+    [`inviteProgress/k/${inviterUid}/count`]: inc,
+    [`inviteProgress/k/${inviterUid}/updatedAt`]: ts,
+  });
+
+  await assertSucceeds(invite(ina, 'ina', '258841111111'));
+  await assertFails(invite(zed, 'zed', '258841111111'));
+  await assertFails(invite(ina, 'ina', '258840000001'));
+  await assertSucceeds(neo.ref('invitedPhones/k/258841111111').once('value'));
+  await assertFails(zed.ref('invitedPhones/k/258841111111').once('value'));
+
+  await assertFails(attribute(neo, 'neo', '258841111111', 'zed'));
+  await assertSucceeds(attribute(neo, 'neo', '258841111111', 'ina'));
+  await assertFails(attribute(neo, 'neo', '258841111111', 'ina'));
+  await assertFails(attribute(old, 'old', '258842222222', 'ina'));
+  await assertFails(zed.ref('inviteProgress/k/zed/count').set(50));
+  const progress = await assertSucceeds(env.unauthenticatedContext().database().ref('inviteProgress/k/ina/count').once('value'));
+  assert.equal(progress.val(), 1);
+});
 test('timed bans stop blocking once they expire', async () => {
   await env.withSecurityRulesDisabled(async context => {
     await context.database().ref('users').update({

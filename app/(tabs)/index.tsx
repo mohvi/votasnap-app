@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ActiveChallengeBanner from '../../components/challenge/ActiveChallengeBanner';
+import InviteStrip from '../../components/invite/InviteStrip';
+import { useActiveInviteCampaign } from '../../services/invites';
 import FeedCard from '../../components/feed/FeedCard';
 import AuthPrompt from '../../components/ui/AuthPrompt';
 import OnboardingModal from '../../components/ui/OnboardingModal';
@@ -39,6 +41,7 @@ export default function FeedScreen() {
   const flatListRef = useRef<FlatList>(null);
   const { isLoggedIn } = useAuth();
   const { challenge: activeChallenge } = useActiveChallenge();
+  const { campaign: inviteCampaign } = useActiveInviteCampaign();
   const insets = useSafeAreaInsets();
   const uid = auth.currentUser?.uid;
 
@@ -104,19 +107,33 @@ export default function FeedScreen() {
 
   // Bloco reutilizável do banner — expandido ou minimizado (pílula)
   const renderChallengeBanner = () => {
-    if (!activeChallenge) return null;
+    // Sem desafio de fotografia (ou banner minimizado), o convite fica sozinho no topo.
+    if (!activeChallenge) {
+      return inviteCampaign ? (
+        <View style={[styles.bannerOverlay, { top: insets.top }]}>
+          <InviteStrip campaign={inviteCampaign} />
+        </View>
+      ) : null;
+    }
 
     if (!bannerExpanded) {
       return (
-        <TouchableOpacity
-          style={[styles.bannerPill, { top: insets.top + 8 }]}
-          onPress={() => setBannerExpanded(true)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.bannerPillText} numberOfLines={1}>
-            🏆 {activeChallenge.title}
-          </Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={[styles.bannerPill, { top: insets.top + 8 }]}
+            onPress={() => setBannerExpanded(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.bannerPillText} numberOfLines={1}>
+              🏆 {activeChallenge.title}
+            </Text>
+          </TouchableOpacity>
+          {inviteCampaign && (
+            <View style={[styles.bannerOverlay, { top: insets.top + 44 }]}>
+              <InviteStrip campaign={inviteCampaign} />
+            </View>
+          )}
+        </>
       );
     }
 
@@ -129,6 +146,7 @@ export default function FeedScreen() {
         />
         <View style={[styles.bannerOverlay, { top: insets.top + 8 }]}>
           <ActiveChallengeBanner challenge={activeChallenge} />
+          {inviteCampaign && <InviteStrip campaign={inviteCampaign} />}
           <TouchableOpacity
             style={styles.collapseBtn}
             onPress={() => setBannerExpanded(false)}

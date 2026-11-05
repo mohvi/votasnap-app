@@ -19,6 +19,7 @@ import { authenticatedRequest } from '../../services/api';
 import provinces from '../../hooks/useProvinces';
 import { auth, db, storage } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
+import { captureClipboardInvite, claimInviteAttribution } from '../../services/invites';
 
 
 export default function SetupProfileScreen() {
@@ -46,6 +47,11 @@ export default function SetupProfileScreen() {
     const uid = auth.currentUser?.uid;
     return Object.keys(snap.val() || {}).some(owner => owner !== uid);
   };
+
+  // Quem instalou pelo link de convite (APK ou iPhone) traz o código copiado.
+  useEffect(() => {
+    captureClipboardInvite();
+  }, []);
 
   // Atualizar cidades quando província mudar
   useEffect(() => {
@@ -202,6 +208,8 @@ export default function SetupProfileScreen() {
         isOver13: true,
       });
 
+      // Conta nova com perfil completo: conta como convite, se houver quem convidou.
+      await claimInviteAttribution();
       router.replace('/(tabs)');
     } catch (e: any) {
       setError(e.message || 'Não foi possível guardar o perfil. Tenta novamente.');
