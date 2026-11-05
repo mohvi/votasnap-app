@@ -1,6 +1,6 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
-import { get, ref, update } from 'firebase/database';
+import { ref, update } from 'firebase/database';
 import { Platform } from 'react-native';
 import { auth, db } from './firebase';
 
@@ -48,13 +48,14 @@ export async function registerForPushNotifications(): Promise<string | null> {
     });
   }
 
-  const token = (
-    await Notifications.getExpoPushTokenAsync({
-      projectId:
-        Constants.expoConfig?.extra?.eas?.projectId ??
-        'ce729688-374a-4762-80dd-103cd7d4748d',
-    })
-  ).data;
+  // O projectId tem de ser o do app.json (extra.eas.projectId): é a ele que a
+  // Expo associa as credenciais FCM/APNs usadas no envio.
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  if (!projectId) {
+    console.log('[PUSH] projectId do EAS em falta');
+    return null;
+  }
+  const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
   console.log('[PUSH] Token:', token);
 
@@ -70,90 +71,14 @@ export async function savePushToken(token: string) {
   });
 }
 
-export async function sendPushNotification({
-  toToken,
-  title,
-  body,
-  data,
-}: {
-  toToken: string;
-  title: string;
-  body: string;
-  data?: Record<string, string>;
-}) {
-  await fetch('https://exp.host/--/api/v2/push/send', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
-      to: toToken,
-      title,
-      body,
-      data: data || {},
-      sound: 'default',
-      priority: 'high',
-    }),
-  });
-}
+// As notificações são enviadas pelo painel de administração (função /api/push
+// na Vercel), nunca pela app: os tokens dos outros utilizadores não são
+// legíveis pelos clientes.
 
-export async function notifyVoteReceived({
-  entryOwnerId,
-  voterName,
-  challengeTitle,
-  challengeId,
-  entryId,
-}: {
-  entryOwnerId: string;
-  voterName: string;
-  challengeTitle: string;
-  challengeId: string;
-  entryId: string;
-}) {
-  try {
-    const userSnap = await get(ref(db, `users/${entryOwnerId}`));
-    if (!userSnap.exists()) return;
-    const token = userSnap.val()?.pushToken;
-    if (!token) return;
-    await sendPushNotification({
-      toToken: token,
-      title: '🗳️ Novo voto!',
-      body: `${voterName} votou na tua entrada em "${challengeTitle}"`,
-      data: { challengeId, entryId, type: 'vote' },
-    });
-  } catch (e) {
-    console.error('[PUSH] Erro ao notificar voto:', e);
-  }
-}
-
-export async function notifyChallengeEnded({
-  userId,
-  challengeTitle,
-  challengeId,
-  isWinner,
-  prize,
-}: {
-  userId: string;
-  challengeTitle: string;
-  challengeId: string;
-  isWinner: boolean;
-  prize: string;
-}) {
-  try {
-    const userSnap = await get(ref(db, `users/${userId}`));
-    if (!userSnap.exists()) return;
-    const token = userSnap.val()?.pushToken;
-    if (!token) return;
-    await sendPushNotification({
-      toToken: token,
-      title: isWinner ? '🏆 Ganhaste!' : '⏱ Desafio encerrado',
-      body: isWinner
-        ? `Parabéns! Ganhaste "${challengeTitle}" e o prémio: ${prize}!`
-        : `O desafio "${challengeTitle}" terminou. Vê os resultados!`,
-      data: { challengeId, type: 'challenge_ended' },
-    });
-  } catch (e) {
-    console.error('[PUSH] Erro ao notificar fim de desafio:', e);
-  }
+// Ecrã a abrir quando o utilizador toca numa notificação.
+export function notificationRoute(data: Record<string, unknown> | undefined): string | null {
+  const url = typeof data?.url === 'string' ? data.url : null;
+  if (url && /^\/[A-Za-z0-9_\-/()]{0,120}$/.test(url)) return url;
+  if (typeof data?.challengeId === 'string') return `/challenge/${data.challengeId}`;
+  return null;
 }

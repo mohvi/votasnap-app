@@ -6,6 +6,7 @@ import { ColorValue, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { useActiveChallenge } from '../../hooks/useActiveChallenge';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { colors, fonts, gradients } from '../../constants/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -41,6 +42,7 @@ function CreateButton({ onPress, disabled }: { onPress: () => void; disabled: bo
 export default function TabsLayout() {
   const { challenge } = useActiveChallenge();
   const insets = useSafeAreaInsets();
+  usePushNotifications();
 
   const handleCreatePress = () => {
     if (!challenge) {

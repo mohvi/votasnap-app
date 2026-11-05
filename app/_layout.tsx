@@ -1,5 +1,5 @@
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -13,10 +13,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from 'sonner-native';
 import { auth } from '../services/firebase';
 import { BlockedUsersProvider } from '../hooks/BlockedUsersProvider';
-import {
-  registerForPushNotifications,
-  savePushToken,
-} from '../services/notifications';
 import { colors } from '../constants/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -52,26 +48,10 @@ export default function RootLayout() {
     return () => { unsubAuth(); sub.remove(); };
   }, []);
 
-  // Registar push token quando utilizador faz login
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async user => {
-      if (user) {
-        try {
-          const token = await registerForPushNotifications();
-          if (token) await savePushToken(token);
-        } catch (e) {
-          console.log('[PUSH] Não disponível:', e);
-        }
-      }
-    });
-    return () => unsub();
-  }, []);
-
   // Listeners de notificação — só se o módulo estiver disponível
 useEffect(() => {
   if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return;
   let notifListener: any;
-  let responseList: any;
 
   try {
     const Notifications = require('expo-notifications');
@@ -93,15 +73,8 @@ useEffect(() => {
         console.log('[PUSH] Recebida:', notification);
       }
     );
-
-    responseList = Notifications.addNotificationResponseReceivedListener(
-      (response: any) => {
-        const data = response.notification.request.content.data;
-        if (data?.challengeId) {
-          router.push(`/challenge/${data.challengeId}`);
-        }
-      }
-    );
+    // O registo do token e o toque nas notificações tratam-se em (tabs)/_layout,
+    // depois de o perfil estar criado.
   } catch {
     // Expo Go — ignora silenciosamente
   }
@@ -109,7 +82,6 @@ useEffect(() => {
   return () => {
     try {
       notifListener?.remove();
-      responseList?.remove();
     } catch {}
   };
 }, []);
