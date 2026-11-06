@@ -1,8 +1,13 @@
 import { auth } from './firebase';
 import { readApiResponse } from './api-response';
 
-export async function authenticatedRequest<T>(path: string, body?: object): Promise<T> {
-  const base = process.env.EXPO_PUBLIC_BACKEND_URL?.trim().replace(/\/$/, '');
+// Participar e votar passam pelo site (Vercel), que verifica no servidor a
+// idade mínima e a abertura do desafio antes de reencaminhar para o backend.
+const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || 'https://votasnap.vercel.app').trim();
+export const CHALLENGE_GATE_URL = SITE_URL.replace(/\/$/, '') + '/api/challenge-action';
+
+export async function authenticatedRequest<T>(path: string, body?: object, baseUrl?: string): Promise<T> {
+  const base = (baseUrl ?? process.env.EXPO_PUBLIC_BACKEND_URL)?.trim().replace(/\/$/, '');
   if (!base) throw new Error('Serviço indisponível. Contacta o suporte.');
   if (!base.startsWith('https://') && !(__DEV__ && base.startsWith('http://'))) {
     throw new Error('A ligação ao serviço precisa de HTTPS.');

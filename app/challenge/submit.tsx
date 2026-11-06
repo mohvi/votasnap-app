@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { authenticatedRequest } from '../../services/api';
+import { authenticatedRequest, CHALLENGE_GATE_URL } from '../../services/api';
 import { useDemographics } from '../../hooks/DemographicsProvider';
 import { canAccessChallenge, challengeMinAge } from '../../services/demographics';
 import { challengeStartsAt } from '../../hooks/useChallenges';
@@ -289,9 +289,9 @@ export default function SubmitScreen() {
         throw new Error('URL da media não foi gerada');
       }
 
-      await authenticatedRequest('/api/challenges/submit', {
+      await authenticatedRequest('?action=submit', {
         challengeId: id, mediaUrl, mediaType, caption: caption.trim(),
-      });
+      }, CHALLENGE_GATE_URL);
 
       // A publicação já foi aceite; o consentimento é gravado à parte e uma
       // falha aqui não deve anular a participação.
