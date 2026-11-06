@@ -4,12 +4,10 @@ import { readApiResponse } from './api-response';
 // Participar e votar passam pelo site (Vercel), que verifica no servidor a
 // idade mínima e a abertura do desafio antes de reencaminhar para o backend.
 const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || 'https://votasnap.vercel.app').trim();
-export const CHALLENGE_GATE_URL = SITE_URL.replace(/\/$/, '') + '/api/challenge-action';
+const CHALLENGE_GATE_URL = SITE_URL.replace(/\/$/, '') + '/api/challenge-action';
 
-export async function authenticatedRequest<T>(path: string, body?: object, baseUrl?: string): Promise<T> {
-  const base = (baseUrl ?? process.env.EXPO_PUBLIC_BACKEND_URL)?.trim().replace(/\/$/, '');
-  if (!base) throw new Error('Serviço indisponível. Contacta o suporte.');
-  if (!base.startsWith('https://') && !(__DEV__ && base.startsWith('http://'))) {
+async function send(url: string, body?: object): Promise<Response> {
+  if (!url.startsWith('https://') && !(__DEV__ && url.startsWith('http://'))) {
     throw new Error('A ligação ao serviço precisa de HTTPS.');
   }
   const user = auth.currentUser;
@@ -18,17 +16,38 @@ export async function authenticatedRequest<T>(path: string, body?: object, baseU
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
   try {
-    const response = await fetch(base + path, {
+    return await fetch(url, {
       method: body ? 'POST' : 'GET',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
-    return await readApiResponse<T>(response);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Não foi possível confirmar a operação. Verifica o estado antes de tentar novamente.');
     }
     throw error;
   } finally { clearTimeout(timeout); }
+}
+
+export async function authenticatedRequest<T>(path: string, body?: object): Promise<T> {
+  const base = process.env.EXPO_PUBLIC_BACKEND_URL?.trim().replace(/\/$/, '');
+  if (!base) throw new Error('Serviço indisponível. Contacta o suporte.');
+  return readApiResponse<T>(await send(base + path, body));
+}
+
+// Participar ou votar. Se a própria Vercel falhar antes de correr o nosso
+// código (erro 5xx sem JSON), o pedido nunca chegou ao backend, por isso vai
+// directamente para lá em vez de bloquear a pessoa. Recusas da verificação
+// (idade, desafio fechado) vêm em JSON e são respeitadas.
+export async function challengeAction<T>(action: 'submit' | 'vote', body: object): Promise<T> {
+  // Falhas de rede ou de tempo não caem para o backend: o pedido pode já ter
+  // passado, e repeti-lo podia duplicar a participação.
+  const response = await send(`${CHALLENGE_GATE_URL}?action=${action}`, body);
+  if (response.status < 500) return readApiResponse<T>(response);
+  const text = await response.clone().text();
+  let isJson = true;
+  try { JSON.parse(text); } catch { isJson = false; }
+  if (isJson) return readApiResponse<T>(response);
+  return authenticatedRequest<T>(`/api/challenges/${action}`, body);
 }
