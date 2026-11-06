@@ -12,7 +12,7 @@ import AuthPrompt from '../../components/ui/AuthPrompt';
 import { colors, fonts, gradients, radius, spacing } from '../../constants/theme';
 import { useDemographics } from '../../hooks/DemographicsProvider';
 import {
-  Challenge, challengeDeadlines, challengeStartsAt, isChallengeOpen, isChallengeUpcoming, useNow,
+  Challenge, challengeDeadlines, challengePrizes, challengeStartsAt, isChallengeOpen, isChallengeUpcoming, useNow,
 } from '../../hooks/useChallenges';
 import { useChallengesScope, useProfiles } from '../../hooks/useScopedData';
 import { canAccessChallenge, challengeMinAge } from '../../services/demographics';
@@ -32,13 +32,23 @@ function formatSpan(ms: number) {
 
 // Desafios concluídos com vencedor confirmado (os mais recentes primeiro).
 function useWinners(limit = 10) {
-  const [list, setList] = useState<Challenge[]>([]);
+  const [list, setList] = useState<(Challenge & { delivered?: boolean; deliveryPhotoUrl?: string | null })[]>([]);
   const [media, setMedia] = useState<Record<string, string>>({});
   useEffect(() => onValue(
     query(ref(db, 'challenges'), orderByChild('status'), equalTo('completed')),
     snap => {
       const items = Object.entries<any>(snap.val() || {})
-        .map(([id, c]) => ({ ...c, id }) as Challenge)
+        .map(([id, c]) => {
+          // O 1.º lugar confirmado (pode ter mudado se o prémio passou ao seguinte).
+          const first = Array.isArray(c.podium) ? c.podium.find((p: any) => p?.place === 1) : null;
+          return {
+            ...c, id,
+            winnerId: first?.uid || c.winnerId,
+            winnerEntryId: first?.entryId || c.winnerEntryId,
+            delivered: !!first?.delivered,
+            deliveryPhotoUrl: first?.deliveryPhotoUrl || null,
+          } as Challenge & { delivered: boolean; deliveryPhotoUrl: string | null };
+        })
         .filter(c => !!c.winnerId)
         .sort((a, b) => (b.confirmedAt || b.endsAt) - (a.confirmedAt || a.endsAt))
         .slice(0, limit);
@@ -127,7 +137,9 @@ export default function ChallengesScreen() {
               <View style={styles.metaRow}>
                 <View style={styles.meta}>
                   <Ionicons name={c.prizeType === 'cash' ? 'cash-outline' : 'gift-outline'} size={14} color={colors.gold} />
-                  <Text style={styles.prize} numberOfLines={1}>{c.prize}</Text>
+                  <Text style={styles.prize} numberOfLines={1}>
+                    {c.prize}{challengePrizes(c).length > 1 ? ` +${challengePrizes(c).length - 1} prémios` : ''}
+                  </Text>
                 </View>
                 <View style={styles.meta}>
                   <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
@@ -177,7 +189,8 @@ export default function ChallengesScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.winnersRow}>
               {visibleWinners.map(c => {
                 const profile = winnerProfiles[c.winnerId as string];
-                const photo = media[c.id];
+                // Foto da entrega (se o vencedor autorizou) ou a publicação vencedora.
+                const photo = c.deliveryPhotoUrl || media[c.id];
                 return (
                   <TouchableOpacity
                     key={c.id}
@@ -195,6 +208,12 @@ export default function ChallengesScreen() {
                     <View style={styles.winnerBody}>
                       <Text style={styles.winnerName} numberOfLines={1}>@{profile?.username || 'vencedor'}</Text>
                       <Text style={styles.winnerPrize} numberOfLines={1}>Ganhou {c.prize}</Text>
+                      {c.delivered && (
+                        <View style={styles.deliveredRow}>
+                          <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                          <Text style={styles.deliveredText}>Prémio entregue</Text>
+                        </View>
+                      )}
                       <Text style={styles.winnerChallenge} numberOfLines={1}>
                         {c.sponsor ? `${c.sponsor} · ` : ''}{c.title}
                       </Text>
@@ -258,4 +277,6 @@ const styles = StyleSheet.create({
   winnerName: { color: colors.text, fontSize: 14, fontFamily: fonts.bold },
   winnerPrize: { color: colors.gold, fontSize: 12, fontFamily: fonts.semibold },
   winnerChallenge: { color: colors.textMuted, fontSize: 11, fontFamily: fonts.regular },
+  deliveredRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  deliveredText: { color: colors.success, fontSize: 11, fontFamily: fonts.semibold },
 });

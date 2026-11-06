@@ -26,10 +26,21 @@ export interface Challenge {
   // Idade mínima (0, 16 ou 18). Desafios de álcool são sempre 18+.
   minAge?: number | null;
   alcohol?: boolean | null;
+  // Prémios por posição (o 1.º também está em `prize`) e como levantar.
+  prizes?: string[] | null;
+  pickupInfo?: string | null;
+  // Premiados confirmados; `delivered`/`deliveryPhotoUrl` quando o prémio foi entregue.
+  podium?: { place: number; uid: string; entryId?: string | null; delivered?: boolean; deliveryPhotoUrl?: string | null }[] | null;
   winnerId?: string | null;
   winnerEntryId?: string | null;
   winnerVotes?: number | null;
   confirmedAt?: number | null;
+}
+
+// Lista de prémios por posição (desafios antigos só têm `prize`).
+export function challengePrizes(challenge: { prizes?: string[] | null; prize?: string } | null | undefined): string[] {
+  if (Array.isArray(challenge?.prizes) && challenge.prizes.length) return challenge.prizes.filter(Boolean);
+  return challenge?.prize ? [challenge.prize] : [];
 }
 
 // Desafios antigos não têm startsAt: abriram quando foram criados.

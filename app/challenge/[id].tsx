@@ -20,7 +20,7 @@ import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
 import ChallengeEndedScreen from '../../components/challenge/ChallengeEndedScreen';
-import { challengeDeadlines, challengeStartsAt, isChallengeOpen, isChallengeUpcoming, useNow } from '../../hooks/useChallenges';
+import { challengeDeadlines, challengePrizes, challengeStartsAt, isChallengeOpen, isChallengeUpcoming, useNow } from '../../hooks/useChallenges';
 import { useDemographics } from '../../hooks/DemographicsProvider';
 import { canAccessChallenge, challengeMinAge } from '../../services/demographics';
 import { AgeBadge, AgeLockedScreen } from '../../components/challenge/AgeNotice';
@@ -44,7 +44,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, readonly [string, string]> = {
-  sponsored: gradients.primary,
+  sponsored: gradients.primary,
   free: gradients.free,
 };
 
@@ -133,6 +133,7 @@ export default function ChallengeDetailScreen() {
   const upcoming = isChallengeUpcoming(challenge, now);
   if (!upcoming && !isChallengeOpen(challenge, now)) return <ChallengeEndedScreen />;
   const opensAt = challengeStartsAt(challenge);
+  const prizes = challengePrizes(challenge);
 
   const gradientColors = TYPE_COLORS[challenge.type] || TYPE_COLORS.free;
   const emoji = CATEGORY_EMOJI[challenge.category] || '🏆';
@@ -236,6 +237,27 @@ export default function ChallengeDetailScreen() {
           <Text style={styles.title}>{challenge.title}</Text>
           <Text style={styles.description}>{challenge.description}</Text>
           <AgeBadge minAge={minAge} alcohol={!!challenge.alcohol} style={{ marginBottom: 16 }} />
+
+          {/* Prémios por posição e como levantar */}
+          {(prizes.length > 1 || !!challenge.pickupInfo) && (
+            <View style={styles.prizesBox}>
+              <Text style={styles.prizesTitle}>Prémios</Text>
+              {prizes.map((p, i) => (
+                <View key={i} style={styles.prizeRow}>
+                  <Text style={[styles.prizePlace, i === 0 && { color: colors.gold }]}>{i + 1}.º</Text>
+                  <Text style={styles.prizeLabel}>{p}</Text>
+                </View>
+              ))}
+              {!!challenge.pickupInfo && (
+                <Text style={styles.pickup}>
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: colors.text }}>Como levantar: </Text>
+                  {challenge.pickupInfo}
+                </Text>
+              )}
+              {minAge > 0 && <Text style={styles.pickup}>Na entrega é pedido o BI para confirmar a idade.</Text>}
+            </View>
+          )}
+
           {upcoming && (
             <View style={styles.upcomingBox}>
               <Text style={styles.upcomingLabel}>Abre a</Text>
@@ -405,6 +427,15 @@ export default function ChallengeDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  prizesBox: {
+    backgroundColor: colors.surface, borderRadius: 14, padding: 14, gap: 8, marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(255,215,0,0.25)',
+  },
+  prizesTitle: { color: colors.text, fontSize: 14, fontFamily: 'Inter_700Bold' },
+  prizeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  prizePlace: { width: 30, color: colors.textSecondary, fontSize: 13, fontFamily: 'Inter_700Bold' },
+  prizeLabel: { flex: 1, color: colors.text, fontSize: 14, fontFamily: 'Inter_500Medium' },
+  pickup: { color: colors.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 19, marginTop: 2 },
   upcomingBox: {
     backgroundColor: colors.surface, borderRadius: 14, padding: 16, gap: 6, marginBottom: 16,
     borderWidth: 1, borderColor: colors.border,
