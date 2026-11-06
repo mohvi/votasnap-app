@@ -207,6 +207,18 @@
           }
         }
       }
+    },
+    "sponsorConsents": {
+      "$challenge": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['sponsorId', 'at', 'version']) && newData.child('sponsorId').isString() && newData.child('sponsorId').val() === root.child('challenges').child($challenge).child('sponsorId').val() && newData.child('at').val() === now && newData.child('version').isNumber()",
+          "$other": {
+            ".validate": "$other === 'sponsorId' || $other === 'at' || $other === 'version'"
+          }
+        }
+      }
     }
   }
 }

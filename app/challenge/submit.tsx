@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { get, ref } from 'firebase/database';
+import { get, ref, serverTimestamp, set } from 'firebase/database';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -32,6 +32,7 @@ interface ChallengeInfo {
   prize: string;
   prizeType: string;
   sponsor: string;
+  sponsorId?: string | null;
   sponsorLogo?: string | null;
   endsAt: number;
   totalParticipants: number;
@@ -55,7 +56,9 @@ export default function SubmitScreen() {
   const [checkingExisting, setCheckingExisting] = useState(true);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [challengeInfo, setChallengeInfo] = useState<ChallengeInfo | null>(null);
-  
+  // Consentimento para a marca do desafio contactar o participante (desmarcado por omissão).
+  const [shareContact, setShareContact] = useState(false);
+
   const uid = auth.currentUser?.uid;
 
   // Mídia aceite pelo desafio
@@ -281,6 +284,14 @@ export default function SubmitScreen() {
         challengeId: id, mediaUrl, mediaType, caption: caption.trim(),
       });
 
+      // A publicação já foi aceite; o consentimento é gravado à parte e uma
+      // falha aqui não deve anular a participação.
+      if (shareContact && challenge.sponsorId && uid) {
+        await set(ref(db, `sponsorConsents/${id}/${uid}`), {
+          sponsorId: challenge.sponsorId, at: serverTimestamp(), version: 1,
+        }).catch(e => console.warn('[CONSENT] não gravado:', e));
+      }
+
       // Sucesso
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
@@ -305,7 +316,7 @@ export default function SubmitScreen() {
     } finally {
       setLoading(false);
     }
-  }, [media, caption, uid, id, mediaType, uploadFileToStorage]);
+  }, [media, caption, uid, id, mediaType, uploadFileToStorage, shareContact]);
 
   // ============================================================
   // HANDLE SUBMIT
@@ -548,6 +559,26 @@ export default function SubmitScreen() {
               <Text style={styles.rulesText}>✓ Quem tiver mais votos no fim, ganha o prémio</Text>
             </View>
           </View>
+
+          {/* Consentimento para a marca (só em desafios patrocinados) */}
+          {challengeInfo?.type === 'sponsored' && !!challengeInfo.sponsorId && (
+            <TouchableOpacity
+              onPress={() => setShareContact(v => !v)}
+              activeOpacity={0.8}
+              style={styles.consentBox}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: shareContact }}
+            >
+              <View style={[styles.consentCheck, shareContact && styles.consentCheckOn]}>
+                {shareContact && <Text style={styles.consentTick}>✓</Text>}
+              </View>
+              <Text style={styles.consentText}>
+                Aceito que <Text style={styles.consentBrand}>{challengeInfo.sponsor || 'a marca'}</Text> me contacte
+                com ofertas e novidades. Partilha o meu nome, telefone e cidade só com esta marca. Opcional: podes
+                participar sem aceitar.
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Botão submeter */}
           <TouchableOpacity
@@ -808,6 +839,30 @@ const styles = StyleSheet.create({
   },
   rulesList: { gap: 6 },
   rulesText: { color: '#777', fontSize: 12.5, fontFamily: 'Inter_400Regular', lineHeight: 18 },
+
+  // Consentimento para a marca
+  consentBox: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: colors.surface,
+    backgroundColor: colors.surfaceSunken,
+  },
+  consentCheck: {
+    width: 22, height: 22, borderRadius: 6,
+    borderWidth: 1.5, borderColor: colors.textSubtle,
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 1,
+  },
+  consentCheckOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  consentTick: { color: '#fff', fontSize: 13, fontFamily: 'Inter_700Bold', lineHeight: 16 },
+  consentText: { flex: 1, color: '#aaa', fontSize: 12.5, fontFamily: 'Inter_400Regular', lineHeight: 18 },
+  consentBrand: { color: '#fff', fontFamily: 'Inter_600SemiBold' },
 
   // Botão
   btnWrap: { marginHorizontal: 16, borderRadius: 14, overflow: 'hidden' },

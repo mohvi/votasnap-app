@@ -159,6 +159,24 @@ test('timed bans stop blocking once they expire', async () => {
   await assertSucceeds(env.authenticatedContext('carol').database().ref('users/carol/pushToken').set('ExponentPushToken[c]'));
   await assertFails(env.authenticatedContext('dave').database().ref('users/dave/pushToken').set('ExponentPushToken[d]'));
 });
+test('sponsor contact consent is owner-only, tied to the challenge sponsor and revocable', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('challenges').update({ sp: { sponsorId: 's1' }, free: { type: 'free' } });
+  });
+  const ana = env.authenticatedContext('ana').database();
+  const consent = (sponsorId) => ({ sponsorId, at: { '.sv': 'timestamp' }, version: 1 });
+  await assertFails(ana.ref('sponsorConsents/sp/rui').set(consent('s1')));
+  await assertFails(ana.ref('sponsorConsents/sp/ana').set(consent('other')));
+  await assertFails(ana.ref('sponsorConsents/free/ana').set(consent('s1')));
+  await assertFails(ana.ref('sponsorConsents/sp/ana').set({ ...consent('s1'), phone: '258841111111' }));
+  await assertFails(ana.ref('sponsorConsents/sp/ana').set({ sponsorId: 's1', at: 1, version: 1 }));
+  await assertSucceeds(ana.ref('sponsorConsents/sp/ana').set(consent('s1')));
+  await assertSucceeds(ana.ref('sponsorConsents/sp/ana').once('value'));
+  await assertFails(env.authenticatedContext('rui').database().ref('sponsorConsents/sp/ana').once('value'));
+  await assertFails(env.authenticatedContext('rui').database().ref('sponsorConsents/sp').once('value'));
+  await assertSucceeds(env.authenticatedContext('admin', { admin: true }).database().ref('sponsorConsents/sp').once('value'));
+  await assertSucceeds(ana.ref('sponsorConsents/sp/ana').remove());
+});
 test('Storage enforces ownership, MIME, size, and prevents replacing published entries', async () => {
   const user = env.authenticatedContext('alice').storage('gs://demo-votasnap.appspot.com');
   const anon = env.unauthenticatedContext().storage('gs://demo-votasnap.appspot.com');
