@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image as BlurredImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { push, ref, set } from 'firebase/database';
@@ -94,12 +95,12 @@ export function VideoPlayer({
 
       {showControls && (
         <View style={styles.pauseOverlay}>
-          <Text style={styles.pauseIcon}>{isPaused ? '▶️' : '⏸️'}</Text>
+          <Ionicons name={isPaused ? 'play' : 'pause'} size={56} color="#fff" />
         </View>
       )}
 
       <TouchableOpacity style={styles.muteBtn} onPress={() => setIsMuted(prev => !prev)} activeOpacity={0.8}>
-        <Text style={styles.muteIcon}>{isMuted ? '🔇' : '🔊'}</Text>
+        <Ionicons name={isMuted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -206,21 +207,24 @@ export default function FeedCard({
         <VideoPlayer uri={entry.mediaUrl} isActive={isActive} onDoubleTap={handleDoubleTap} />
       ) : (
         <TouchableOpacity style={styles.mediaTouch} activeOpacity={1} onPress={handleDoubleTap}>
+          {/* Fundo desfocado com a própria foto, para não ficarem faixas pretas */}
+          <BlurredImage source={{ uri: entry.mediaUrl }} style={[styles.media, styles.backdrop]} contentFit="cover" blurRadius={25} />
+          <View style={styles.backdropDim} />
           <Image source={{ uri: entry.mediaUrl }} style={styles.media} resizeMode="contain" />
         </TouchableOpacity>
       )}
 
       {/* Burst de coração — centrado, ao estilo TikTok */}
       {burstVisible && (
-        <Animated.Text
+        <Animated.View
           style={[
             styles.heartBurst,
             { transform: [{ scale: burstScale }], opacity: burstOpacity },
           ]}
           pointerEvents="none"
         >
-          ❤️
-        </Animated.Text>
+          <Ionicons name="heart" size={110} color={colors.primary} />
+        </Animated.View>
       )}
 
       {/* Gradiente inferior */}
@@ -297,8 +301,9 @@ export default function FeedCard({
         </TouchableOpacity>
 
         <View style={styles.challengeTag}>
+          <Ionicons name="trophy" size={12} color={colors.gold} />
           <Text style={styles.challengeTagText} numberOfLines={1}>
-            🏆 {entry.challengeTitle}
+            {entry.challengeTitle}
           </Text>
         </View>
       </View>
@@ -333,8 +338,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '36%',
     alignSelf: 'center',
-    fontSize: 90,
     zIndex: 99,
+  },
+  // Ampliado para a desfocagem não escurecer as margens.
+  backdrop: { transform: [{ scale: 1.3 }] },
+  backdropDim: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   mediaTouch: {
     position: 'absolute',
@@ -457,6 +468,9 @@ const styles = StyleSheet.create({
   },
   challengeTag: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 0.5,
     borderColor: 'rgba(255,255,255,0.2)',
@@ -467,6 +481,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   challengeTagText: {
+    flexShrink: 1,
     color: '#fff',
     fontSize: 11,
     fontFamily: 'Inter_500Medium',

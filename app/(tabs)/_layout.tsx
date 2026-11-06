@@ -33,7 +33,7 @@ function CreateButton({ onPress, disabled }: { onPress: () => void; disabled: bo
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <Ionicons name="add" size={26} color="#fff" />
+        <Ionicons name="add" size={22} color="#fff" />
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -65,10 +65,11 @@ export default function TabsLayout() {
           backgroundColor: '#000',
           borderTopWidth: 0.5,
           borderTopColor: colors.surface,
-          height: 60 + insets.bottom,
+          height: 64 + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
+        tabBarItemStyle: { justifyContent: 'center' },
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textSubtle,
         tabBarLabelStyle: { fontSize: 11, fontFamily: fonts.medium },
@@ -87,7 +88,6 @@ export default function TabsLayout() {
         name="create"
         options={{
           title: 'Participar',
-          tabBarShowLabel: false,
           tabBarAccessibilityLabel: 'Participar no desafio',
           tabBarIcon: () => <CreateButton onPress={handleCreatePress} disabled={!challenge} />,
         }}
@@ -112,12 +112,11 @@ export default function TabsLayout() {
 
 const tabStyles = StyleSheet.create({
   createBtn: {
-    width: 52,
-    height: 36,
-    borderRadius: 12,
+    width: 46,
+    height: 28,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
   },
   createDisabled: {
     opacity: 0.45,

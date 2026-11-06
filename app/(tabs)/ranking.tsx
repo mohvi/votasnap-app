@@ -1,3 +1,4 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -36,6 +37,16 @@ interface Challenge {
   totalVotes: number;
   totalParticipants: number;
   endsAt: number;
+}
+
+const MEDAL_COLORS: Record<number, string> = { 1: colors.gold, 2: colors.silver, 3: colors.bronze };
+
+function Medal({ place }: { place: 1 | 2 | 3 }) {
+  return (
+    <View style={[styles.medal, { backgroundColor: MEDAL_COLORS[place] }]}>
+      <Text style={styles.medalText}>{place}</Text>
+    </View>
+  );
 }
 
 export default function RankingScreen() {
@@ -100,7 +111,8 @@ export default function RankingScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🏆 Ranking</Text>
+        <Ionicons name="trophy" size={20} color={colors.gold} />
+        <Text style={styles.headerTitle}>Ranking</Text>
       </View>
 
       <ScrollView
@@ -122,7 +134,7 @@ export default function RankingScreen() {
                   </Text>
                 </LinearGradient>
               )}
-              <Text style={styles.podiumMedal}>🥈</Text>
+              <Medal place={2} />
               <Text style={styles.podiumName} numberOfLines={1}>
                 {filtered[1].userName}
               </Text>
@@ -132,7 +144,7 @@ export default function RankingScreen() {
             {/* 1º lugar */}
             <View style={[styles.podiumItem, styles.podiumFirst]}>
               <View style={styles.crownWrap}>
-                <Text style={styles.crown}>👑</Text>
+                <MaterialCommunityIcons name="crown" size={24} color={colors.gold} />
               </View>
               {filtered[0].userAvatar ? (
                 <Image source={{ uri: filtered[0].userAvatar }} style={[styles.podiumAvatar, styles.podiumAvatarFirst]} />
@@ -143,7 +155,7 @@ export default function RankingScreen() {
                   </Text>
                 </LinearGradient>
               )}
-              <Text style={styles.podiumMedal}>🥇</Text>
+              <Medal place={1} />
               <Text style={styles.podiumName} numberOfLines={1}>
                 {filtered[0].userName}
               </Text>
@@ -155,8 +167,9 @@ export default function RankingScreen() {
                 style={styles.winnerBadge}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}>
-                <Text style={styles.winnerBadgeText}>
-                  🎁 {filtered[0].challengePrize}
+                <Ionicons name="gift" size={11} color={colors.text} />
+                <Text style={styles.winnerBadgeText} numberOfLines={1}>
+                  {filtered[0].challengePrize}
                 </Text>
               </LinearGradient>
             </View>
@@ -170,7 +183,7 @@ export default function RankingScreen() {
                   </Text>
                 </LinearGradient>
               )}
-              <Text style={styles.podiumMedal}>🥉</Text>
+              <Medal place={3} />
               <Text style={styles.podiumName} numberOfLines={1}>
                 {filtered[2].userName}
               </Text>
@@ -207,8 +220,14 @@ export default function RankingScreen() {
           <Text style={styles.listTitle}>Classificação completa</Text>
           {filtered.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>🎯</Text>
-              <Text style={styles.emptyText}>Ainda não há entradas</Text>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="podium-outline" size={34} color={colors.primary} />
+              </View>
+              <Text style={styles.emptyTitle}>Ainda não há participações</Text>
+              <Text style={styles.emptyText}>Quando alguém participar num desafio, a classificação aparece aqui.</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/')} activeOpacity={0.85}>
+                <Text style={styles.emptyBtnText}>Ver o feed</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             filtered.map((entry, i) => (
@@ -224,7 +243,7 @@ export default function RankingScreen() {
                   style={styles.position}
                 >
                   <Text style={styles.positionText}>
-                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+                    {i + 1}
                   </Text>
                 </LinearGradient>
 
@@ -255,6 +274,14 @@ export default function RankingScreen() {
               </TouchableOpacity>
             ))
           )}
+          {filtered.length > 0 && filtered.length < 3 && (
+            <View style={styles.hint}>
+              <Ionicons name="share-social-outline" size={18} color={colors.primary} />
+              <Text style={styles.hintText}>
+                Ainda há poucos participantes. Partilha o desafio com amigos para receberes mais votos.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -267,6 +294,9 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 100 },
 
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 0.5,
@@ -302,7 +332,6 @@ const styles = StyleSheet.create({
   podiumSecond: { marginBottom: 12 },
   podiumThird: { marginBottom: 20 },
   crownWrap: { marginBottom: 2 },
-  crown: { fontSize: 22 },
   podiumAvatar: {
     width: 52, height: 52, borderRadius: 26,
     alignItems: 'center', justifyContent: 'center',
@@ -314,16 +343,22 @@ const styles = StyleSheet.create({
   podiumAvatarText: {
     color: '#fff', fontSize: 20, fontFamily: 'Inter_700Bold',
   },
-  podiumMedal: { fontSize: 18 },
+  medal: {
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center', marginTop: -14,
+    borderWidth: 2, borderColor: colors.surfaceSunken,
+  },
+  medalText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#000' },
   podiumName: {
     fontSize: 11, fontFamily: 'Inter_700Bold', color: '#fff',
     textAlign: 'center',
   },
   podiumVotes: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.textMuted },
   winnerBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%',
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginTop: 4,
   },
-  winnerBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#fff' },
+  winnerBadgeText: { flexShrink: 1, fontSize: 10, fontFamily: 'Inter_700Bold', color: '#fff' },
 
   // Filtros
   filtersRow: {
@@ -356,9 +391,24 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff', marginBottom: 12,
   },
-  empty: { alignItems: 'center', paddingVertical: 32, gap: 8 },
-  emptyEmoji: { fontSize: 40 },
-  emptyText: { color: colors.textSubtle, fontSize: 14, fontFamily: 'Inter_400Regular' },
+  empty: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24, gap: 8 },
+  emptyIcon: {
+    width: 72, height: 72, borderRadius: 36, marginBottom: 4,
+    backgroundColor: 'rgba(255,40,106,0.12)', alignItems: 'center', justifyContent: 'center',
+  },
+  emptyTitle: { color: colors.text, fontSize: 16, fontFamily: 'Inter_700Bold' },
+  emptyText: { color: colors.textMuted, fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 19 },
+  emptyBtn: {
+    marginTop: 8, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20,
+    borderWidth: 1, borderColor: colors.primary,
+  },
+  emptyBtnText: { color: colors.primary, fontSize: 13, fontFamily: 'Inter_700Bold' },
+  hint: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8,
+    padding: 14, borderRadius: 14, backgroundColor: 'rgba(255,40,106,0.08)',
+    borderWidth: 0.5, borderColor: 'rgba(255,40,106,0.3)',
+  },
+  hintText: { flex: 1, color: colors.textSecondary, fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 19 },
 
   row: {
     flexDirection: 'row',

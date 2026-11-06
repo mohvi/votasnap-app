@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
@@ -39,6 +40,7 @@ export default function FeedScreen() {
   const [bannerExpanded, setBannerExpanded] = useState(true); // controla se o banner aparece inteiro ou minimizado
 
   const flatListRef = useRef<FlatList>(null);
+  const autoCollapsed = useRef(false);
   const { isLoggedIn } = useAuth();
   const { challenge: activeChallenge } = useActiveChallenge();
   const { campaign: inviteCampaign } = useActiveInviteCampaign();
@@ -97,7 +99,14 @@ export default function FeedScreen() {
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index ?? 0);
+      const index = viewableItems[0].index ?? 0;
+      setCurrentIndex(index);
+      // Ao passar para a segunda publicação, o banner minimiza-se (uma só vez)
+      // para o conteúdo ocupar o ecrã.
+      if (index > 0 && !autoCollapsed.current) {
+        autoCollapsed.current = true;
+        setBannerExpanded(false);
+      }
     }
   }).current;
 
@@ -117,23 +126,24 @@ export default function FeedScreen() {
     }
 
     if (!bannerExpanded) {
+      // Minimizado: uma só linha com o desafio e, se houver, o convite.
       return (
-        <>
+        <View style={[styles.pillRow, { top: insets.top + 8 }]}>
           <TouchableOpacity
-            style={[styles.bannerPill, { top: insets.top + 8 }]}
+            style={styles.bannerPill}
             onPress={() => setBannerExpanded(true)}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver desafio ${activeChallenge.title}`}
           >
+            <Ionicons name="trophy" size={13} color={colors.gold} />
             <Text style={styles.bannerPillText} numberOfLines={1}>
-              🏆 {activeChallenge.title}
+              {activeChallenge.title}
             </Text>
+            <Ionicons name="chevron-down" size={13} color={colors.textSecondary} />
           </TouchableOpacity>
-          {inviteCampaign && (
-            <View style={[styles.bannerOverlay, { top: insets.top + 44 }]}>
-              <InviteStrip campaign={inviteCampaign} />
-            </View>
-          )}
-        </>
+          {inviteCampaign && <InviteStrip campaign={inviteCampaign} compact />}
+        </View>
       );
     }
 
@@ -152,8 +162,10 @@ export default function FeedScreen() {
             onPress={() => setBannerExpanded(false)}
             activeOpacity={0.8}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Minimizar"
           >
-            <Text style={styles.collapseBtnText}>✕</Text>
+            <Ionicons name="chevron-up" size={14} color={colors.text} />
           </TouchableOpacity>
         </View>
       </>
@@ -173,29 +185,31 @@ export default function FeedScreen() {
       <SafeAreaView style={styles.center}>
         {renderChallengeBanner()}
 
-        <Text style={styles.emptyEmoji}>🎯</Text>
+        <View style={styles.emptyIcon}>
+          <Ionicons name="images-outline" size={40} color={colors.primary} />
+        </View>
         <Text style={styles.emptyTitle}>Ainda não há participações</Text>
         <Text style={styles.emptySub}>
           {activeChallenge
             ? `Sê o primeiro a participar em "${activeChallenge.title}"!`
             : 'Participa num desafio e sê o primeiro!'}
         </Text>
-        <TouchableOpacity
-          style={styles.reviewBtn}
-          onPress={() => {
-            if (activeChallenge) {
+        {activeChallenge && (
+          <TouchableOpacity
+            style={styles.reviewBtn}
+            onPress={() => {
               router.push({
                 pathname: '/challenge/submit',
                 params: { id: activeChallenge.id, title: activeChallenge.title },
               });
-            }
-          }}
-          activeOpacity={0.85}
-        >
-          <LinearGradient colors={gradients.primary} style={styles.reviewBtnGrad}>
-            <Text style={styles.reviewBtnText}>🚀 Participar agora</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            }}
+            activeOpacity={0.85}
+          >
+            <LinearGradient colors={gradients.primary} style={styles.reviewBtnGrad}>
+              <Text style={styles.reviewBtnText}>Participar agora</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
     );
   }
@@ -267,6 +281,7 @@ export default function FeedScreen() {
       <OnboardingModal
         visible={showOnboarding}
         onClose={handleCloseOnboarding}
+        hasActiveChallenge={!!activeChallenge}
       />
     </View>
   );
@@ -304,19 +319,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Inter_600SemiBold',
   },
-  bannerPill: {
+  pillRow: {
     position: 'absolute',
     left: 14,
+    right: 14,
     zIndex: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bannerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: 0.5,
     borderColor: 'rgba(255,255,255,0.2)',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    maxWidth: width * 0.6,
   },
   bannerPillText: {
+    flexShrink: 1,
     color: '#fff',
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
@@ -346,7 +371,15 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.primary,
   },
-  emptyEmoji: { fontSize: 64 },
+  emptyIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255,40,106,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: { color: '#fff', fontSize: 22, fontFamily: 'Inter_700Bold', textAlign: 'center' },
   emptySub: { color: colors.textMuted, fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22 },
   reviewBtn: { borderRadius: 14, overflow: 'hidden', marginTop: 8, width: '80%' },

@@ -1,17 +1,24 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Challenge } from '../../hooks/useChallenges';
 import { SponsorName } from './SponsorName';
-import { colors, gradients } from '../../constants/theme';
+import { colors, fonts, gradients } from '../../constants/theme';
+
+const META = 'rgba(255,255,255,0.85)';
 
 function TimeLeft({ endsAt }: { endsAt: number }) {
   const diff = endsAt - Date.now();
-  if (diff <= 0) return <Text style={styles.timeOver}>Encerrado</Text>;
+  if (diff <= 0) return <Text style={styles.meta}>Encerrado</Text>;
   const days = Math.floor(diff / 86400000);
   const hours = Math.floor((diff % 86400000) / 3600000);
-  if (days > 0) return <Text style={styles.time}>⏱ {days}d</Text>;
-  return <Text style={styles.time}>⏱ {hours}h</Text>;
+  return (
+    <View style={styles.metaItem}>
+      <Ionicons name="time-outline" size={12} color={META} />
+      <Text style={styles.meta}>{days > 0 ? `${days}d` : `${hours}h`}</Text>
+    </View>
+  );
 }
 
 export default function ActiveChallengeBanner({ challenge }: { challenge: Challenge }) {
@@ -29,6 +36,8 @@ export default function ActiveChallengeBanner({ challenge }: { challenge: Challe
       style={styles.wrap}
       onPress={handlePress}
       activeOpacity={0.9}
+      accessibilityRole="button"
+      accessibilityLabel={`Participar no desafio ${challenge.title}`}
     >
       {challenge.coverImage ? (
         <Image source={{ uri: challenge.coverImage }} style={styles.bgImage} />
@@ -40,26 +49,21 @@ export default function ActiveChallengeBanner({ challenge }: { challenge: Challe
         end={{ x: 1, y: 0 }}
       >
         <View style={styles.info}>
-          {/* Label — muda consoante for patrocinado ou não */}
-          <Text style={styles.label}>
-            {isSponsored ? '🏢 Desafio patrocinado' : '🏆 Desafio activo'}
-          </Text>
+          {isSponsored ? (
+            <SponsorName name={challenge.sponsor} logo={challenge.sponsorLogo} textStyle={styles.label} />
+          ) : (
+            <Text style={styles.label}>Desafio activo</Text>
+          )}
 
           <Text style={styles.title} numberOfLines={1}>{challenge.title}</Text>
 
           <View style={styles.metaRow}>
-            <Text style={styles.prize}>
-              {challenge.prizeType === 'cash' ? '💰' : '🎁'} {challenge.prize}
-            </Text>
+            <View style={styles.metaItem}>
+              <Ionicons name={challenge.prizeType === 'cash' ? 'cash-outline' : 'gift-outline'} size={13} color={colors.gold} />
+              <Text style={styles.prize} numberOfLines={1}>{challenge.prize}</Text>
+            </View>
             <TimeLeft endsAt={challenge.endsAt} />
           </View>
-
-          {/* Pill do patrocinador — só aparece quando challenge.type === 'sponsored' */}
-          {isSponsored && (
-            <View style={styles.sponsorPill}>
-              <SponsorName name={challenge.sponsor} logo={challenge.sponsorLogo} textStyle={styles.sponsorText} />
-            </View>
-          )}
         </View>
 
         <View style={styles.cta}>
@@ -72,9 +76,8 @@ export default function ActiveChallengeBanner({ challenge }: { challenge: Challe
 
 const styles = StyleSheet.create({
   wrap: {
-    marginHorizontal: 16,
+    marginHorizontal: 14,
     marginTop: 8,
-    marginBottom: 4,
     borderRadius: 14,
     overflow: 'hidden',
   },
@@ -87,55 +90,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    gap: 10,
   },
   gradientOverlay: {
     backgroundColor: 'rgba(255,40,106,0.55)',
   },
-  info: { flex: 1, gap: 2 },
+  info: { flex: 1, gap: 2, minWidth: 0 },
   label: {
-    color: 'rgba(255,255,255,0.85)',
+    color: META,
     fontSize: 11,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: fonts.medium,
   },
   title: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 15,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: fonts.bold,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 2,
+    gap: 12,
+    marginTop: 1,
   },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   prize: {
     color: colors.gold,
     fontSize: 12,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: fonts.bold,
+    flexShrink: 1,
   },
-  time: {
-    color: 'rgba(255,255,255,0.85)',
+  meta: {
+    color: META,
     fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  timeOver: {
-    color: '#fff',
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-  },
-  sponsorPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginTop: 4,
-  },
-  sponsorText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 10,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: fonts.regular,
   },
   cta: {
     backgroundColor: 'rgba(0,0,0,0.3)',
@@ -144,8 +132,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   ctaText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 12,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: fonts.bold,
   },
 });
