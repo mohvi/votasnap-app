@@ -13,6 +13,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from 'sonner-native';
 import { auth } from '../services/firebase';
 import { BlockedUsersProvider } from '../hooks/BlockedUsersProvider';
+import { DemographicsProvider } from '../hooks/DemographicsProvider';
 import { colors } from '../constants/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -92,6 +93,7 @@ useEffect(() => {
   return (
     <SafeAreaProvider>
     <BlockedUsersProvider>
+    <DemographicsProvider>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
@@ -105,9 +107,11 @@ useEffect(() => {
         <Stack.Screen name="entry/[challengeId]/[entryId]" />
         <Stack.Screen name="invite/[code]" />
         <Stack.Screen name="invite-friends" />
+        <Stack.Screen name="about-you" />
       </Stack>
       <Toaster theme="dark" position="top-center" richColors />
     </GestureHandlerRootView>
+    </DemographicsProvider>
     </BlockedUsersProvider>
     </SafeAreaProvider>
   );

@@ -20,7 +20,11 @@ import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
 import ChallengeEndedScreen from '../../components/challenge/ChallengeEndedScreen';
-import { isChallengeOpen, useNow } from '../../hooks/useChallenges';
+import { challengeDeadlines, challengeStartsAt, isChallengeOpen, isChallengeUpcoming, useNow } from '../../hooks/useChallenges';
+import { useDemographics } from '../../hooks/DemographicsProvider';
+import { canAccessChallenge, challengeMinAge } from '../../services/demographics';
+import { AgeBadge, AgeLockedScreen } from '../../components/challenge/AgeNotice';
+import ReminderButton from '../../components/challenge/ReminderButton';
 
 interface Entry {
   id: string;
@@ -65,7 +69,8 @@ export default function ChallengeDetailScreen() {
 
   const uid = auth.currentUser?.uid;
   const { isLoggedIn } = useAuth();
-  const now = useNow([challenge?.endsAt]);
+  const now = useNow(challengeDeadlines(challenge));
+  const { age } = useDemographics();
 
   useEffect(() => {
     const unsub = onValue(ref(db, `challenges/${id}`), snap => {
@@ -123,7 +128,11 @@ export default function ChallengeDetailScreen() {
     );
   }
 
-  if (!isChallengeOpen(challenge, now)) return <ChallengeEndedScreen />;
+  const minAge = challengeMinAge(challenge);
+  if (!canAccessChallenge(challenge, age)) return <AgeLockedScreen minAge={minAge} />;
+  const upcoming = isChallengeUpcoming(challenge, now);
+  if (!upcoming && !isChallengeOpen(challenge, now)) return <ChallengeEndedScreen />;
+  const opensAt = challengeStartsAt(challenge);
 
   const gradientColors = TYPE_COLORS[challenge.type] || TYPE_COLORS.free;
   const emoji = CATEGORY_EMOJI[challenge.category] || '🏆';
@@ -226,6 +235,16 @@ export default function ChallengeDetailScreen() {
         <View style={styles.info}>
           <Text style={styles.title}>{challenge.title}</Text>
           <Text style={styles.description}>{challenge.description}</Text>
+          <AgeBadge minAge={minAge} alcohol={!!challenge.alcohol} style={{ marginBottom: 16 }} />
+          {upcoming && (
+            <View style={styles.upcomingBox}>
+              <Text style={styles.upcomingLabel}>Abre a</Text>
+              <Text style={styles.upcomingDate}>
+                {new Date(opensAt).toLocaleString('pt-MZ', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              <ReminderButton challengeId={challenge.id} title={challenge.title} startsAt={opensAt} onNeedLogin={() => setShowAuthPrompt(true)} />
+            </View>
+          )}
 
           {/* Stats */}
           <View style={styles.statsRow}>
@@ -244,7 +263,7 @@ export default function ChallengeDetailScreen() {
           </View>
 
           {/* Acções */}
-          {!isEnded && (
+          {!isEnded && !upcoming && (
             <View style={styles.actions}>
               {!hasEntered ? (
                 <TouchableOpacity
@@ -386,6 +405,12 @@ export default function ChallengeDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  upcomingBox: {
+    backgroundColor: colors.surface, borderRadius: 14, padding: 16, gap: 6, marginBottom: 16,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  upcomingLabel: { color: colors.textMuted, fontSize: 12, fontFamily: 'Inter_500Medium' },
+  upcomingDate: { color: colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 6, textTransform: 'capitalize' },
   container: { flex: 1, backgroundColor: '#000' },
   center: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   errorText: { color: colors.danger, fontSize: 16, fontFamily: 'Inter_500Medium' },

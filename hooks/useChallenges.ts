@@ -21,6 +21,28 @@ export interface Challenge {
   status: 'active' | 'ended' | 'cancelled' | 'pending_confirmation' | 'completed';
   totalVotes: number;
   totalParticipants: number;
+  // Agendado: anunciado em "Em breve" e aberto a partir de startsAt.
+  startsAt?: number | null;
+  // Idade mínima (0, 16 ou 18). Desafios de álcool são sempre 18+.
+  minAge?: number | null;
+  alcohol?: boolean | null;
+  winnerId?: string | null;
+  winnerEntryId?: string | null;
+  winnerVotes?: number | null;
+  confirmedAt?: number | null;
+}
+
+// Desafios antigos não têm startsAt: abriram quando foram criados.
+export function challengeStartsAt(challenge: { startsAt?: number | null; createdAt?: number }): number {
+  return Number.isFinite(challenge.startsAt) ? (challenge.startsAt as number) : (challenge.createdAt ?? 0);
+}
+
+// Anunciado mas ainda não aberto.
+export function isChallengeUpcoming(
+  challenge: { status?: string; startsAt?: number | null; createdAt?: number } | null | undefined,
+  now = Date.now(),
+): boolean {
+  return !!challenge && challenge.status === 'active' && challengeStartsAt(challenge) > now;
 }
 
 // Desafios sem marca são da comunidade (organizados pela VotaSnap).
@@ -31,11 +53,17 @@ export function challengeTypeLabel(type?: string): string {
 // Um desafio só é visível enquanto está activo E dentro do prazo. O encerramento
 // no servidor é manual, por isso `status` pode continuar 'active' depois de `endsAt`.
 export function isChallengeOpen(
-  challenge: { status?: string; endsAt?: number } | null | undefined,
+  challenge: { status?: string; endsAt?: number; startsAt?: number | null; createdAt?: number } | null | undefined,
   now = Date.now(),
 ): boolean {
   return !!challenge && challenge.status === 'active'
+    && challengeStartsAt(challenge) <= now
     && Number.isFinite(challenge.endsAt) && (challenge.endsAt as number) > now;
+}
+
+// Prazos que mudam o estado de um desafio (abrir e fechar), para useNow.
+export function challengeDeadlines(challenge: { endsAt?: number; startsAt?: number | null } | null | undefined) {
+  return challenge ? [challenge.endsAt, challenge.startsAt ?? undefined] : [];
 }
 
 // Devolve a hora actual e volta a renderizar quando o próximo prazo passa,
@@ -87,7 +115,7 @@ export function useChallenges(filter: 'all' | 'active' = 'active') {
     return () => unsub();
   }, [filter]);
 
-  const now = useNow(challenges.map(c => c.endsAt));
+  const now = useNow(challenges.flatMap(challengeDeadlines));
   const visible = filter === 'active' ? challenges.filter(c => isChallengeOpen(c, now)) : challenges;
   return { challenges: visible, loading, error };
 }

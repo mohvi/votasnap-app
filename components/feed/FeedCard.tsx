@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { FeedEntry } from '../../hooks/useFeedEntries';
+import { AgeBadge } from '../challenge/AgeNotice';
 import { useBlockedUsers } from '../../hooks/BlockedUsersProvider';
 import { auth, db } from '../../services/firebase';
 import { sharePost } from '../../services/share';
@@ -306,6 +307,9 @@ export default function FeedCard({
             {entry.challengeTitle}
           </Text>
         </View>
+        {!!entry.challengeMinAge && (
+          <AgeBadge minAge={entry.challengeMinAge} alcohol={entry.challengeAlcohol} />
+        )}
       </View>
     </View>
   );

@@ -19,6 +19,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authenticatedRequest } from '../../services/api';
+import { useDemographics } from '../../hooks/DemographicsProvider';
+import { canAccessChallenge, challengeMinAge } from '../../services/demographics';
+import { challengeStartsAt } from '../../hooks/useChallenges';
+import { AgeLockedScreen } from '../../components/challenge/AgeNotice';
 import { auth, db, storage } from '../../services/firebase';
 import { colors, gradients } from '../../constants/theme';
 import { toast } from 'sonner-native';
@@ -40,6 +44,10 @@ interface ChallengeInfo {
   allowedMediaType?: 'photo' | 'video' | 'both';
   type?: 'free' | 'sponsored';
   status: string;
+  startsAt?: number | null;
+  createdAt?: number;
+  minAge?: number | null;
+  alcohol?: boolean | null;
 }
 
 // ============================================================
@@ -56,6 +64,7 @@ export default function SubmitScreen() {
   const [checkingExisting, setCheckingExisting] = useState(true);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [challengeInfo, setChallengeInfo] = useState<ChallengeInfo | null>(null);
+  const { age } = useDemographics();
   // Consentimento para a marca do desafio contactar o participante (desmarcado por omissão).
   const [shareContact, setShareContact] = useState(false);
 
@@ -393,6 +402,22 @@ export default function SubmitScreen() {
             Partilha o teu link para angariar mais votos!
           </Text>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Idade mínima e desafios agendados: não se participa antes de abrir nem sem idade.
+  if (challengeInfo && !canAccessChallenge(challengeInfo, age)) {
+    return <AgeLockedScreen minAge={challengeMinAge(challengeInfo)} />;
+  }
+  if (challengeInfo && challengeStartsAt(challengeInfo) > Date.now()) {
+    return (
+      <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
+        <Text style={{ color: colors.text, fontSize: 18, fontFamily: 'Inter_700Bold', textAlign: 'center', marginBottom: 8 }}>Este desafio ainda não abriu</Text>
+        <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 20 }}>
+          Abre a {new Date(challengeStartsAt(challengeInfo)).toLocaleString('pt-MZ', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.
+        </Text>
+        <TouchableOpacity onPress={() => router.back()}><Text style={{ color: colors.primary }}>Voltar</Text></TouchableOpacity>
       </SafeAreaView>
     );
   }

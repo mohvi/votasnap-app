@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { auth } from '../services/firebase';
 import { useBlockedUsers } from './BlockedUsersProvider';
-import { isChallengeOpen, useNow } from './useChallenges';
+import { challengeDeadlines, isChallengeOpen, useNow } from './useChallenges';
+import { useDemographics } from './DemographicsProvider';
+import { canAccessChallenge, challengeMinAge } from '../services/demographics';
 import { useChallengesScope, useEntriesFor, useMyVotes, useProfiles } from './useScopedData';
 
 export interface FeedEntry {
@@ -10,6 +12,8 @@ export interface FeedEntry {
   challengeTitle: string;
   challengePrize: string;
   challengePrizeType: string;
+  challengeMinAge?: number;
+  challengeAlcohol?: boolean;
   userId: string;
   userName: string;
   userAvatar: string | null;
@@ -29,7 +33,13 @@ export function useFeedEntries() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Só desafios activos, as suas publicações e o voto do próprio utilizador.
-  const { challenges, loaded: challengesLoaded } = useChallengesScope('active');
+  const { challenges: activeChallenges, loaded: challengesLoaded } = useChallengesScope('active');
+  // Desafios com idade mínima só para quem a declarou (nem se descarregam as publicações).
+  const { age } = useDemographics();
+  const challenges = useMemo(
+    () => Object.fromEntries(Object.entries<any>(activeChallenges).filter(([, c]) => canAccessChallenge(c, age))),
+    [activeChallenges, age],
+  );
   const challengeIds = useMemo(() => Object.keys(challenges), [challenges]);
   const { entries: entriesByChallenge, loaded: entriesLoaded } = useEntriesFor(challengeIds);
   const { votes: userVotes, loaded: votesLoaded } = useMyVotes(challengeIds);
@@ -38,7 +48,7 @@ export function useFeedEntries() {
     [entriesByChallenge],
   );
   const users = useProfiles(authorIds);
-  const now = useNow(Object.values<any>(challenges).map(c => c?.endsAt));
+  const now = useNow(Object.values<any>(challenges).flatMap(challengeDeadlines));
 
   const shuffle = <T,>(arr: T[]): T[] => {
     const copy = [...arr];
@@ -83,6 +93,8 @@ export function useFeedEntries() {
           challengeTitle: challenge.title ?? '',
           challengePrize: challenge.prize ?? '',
           challengePrizeType: challenge.prizeType ?? '',
+          challengeMinAge: challengeMinAge(challenge),
+          challengeAlcohol: !!challenge.alcohol,
           userId: entry.userId,
           userName,
           userAvatar,

@@ -19,7 +19,10 @@ import { auth, db } from '../../../services/firebase';
 import { colors, gradients } from '../../../constants/theme';
 import { toast } from 'sonner-native';
 import ChallengeEndedScreen from '../../../components/challenge/ChallengeEndedScreen';
-import { isChallengeOpen, useNow } from '../../../hooks/useChallenges';
+import { challengeDeadlines, isChallengeOpen, useNow } from '../../../hooks/useChallenges';
+import { useDemographics } from '../../../hooks/DemographicsProvider';
+import { canAccessChallenge, challengeMinAge } from '../../../services/demographics';
+import { AgeLockedScreen } from '../../../components/challenge/AgeNotice';
 
 interface Entry {
   userId: string;
@@ -35,6 +38,10 @@ interface Challenge {
   prizeType: string;
   status: string;
   endsAt: number;
+  startsAt?: number | null;
+  createdAt?: number;
+  minAge?: number | null;
+  alcohol?: boolean | null;
 }
 
 interface User {
@@ -58,7 +65,8 @@ export default function EntryDeepLinkScreen() {
 
   const uid = auth.currentUser?.uid;
   const isLoggedIn = !!uid;
-  const now = useNow([challenge?.endsAt]);
+  const now = useNow(challengeDeadlines(challenge));
+  const { age } = useDemographics();
   const isEnded = challenge ? !isChallengeOpen(challenge, now) : false;
 
   useEffect(() => {
@@ -154,6 +162,7 @@ export default function EntryDeepLinkScreen() {
     );
   }
 
+  if (!canAccessChallenge(challenge, age)) return <AgeLockedScreen minAge={challengeMinAge(challenge)} />;
   if (isEnded) return <ChallengeEndedScreen />;
 
   return (

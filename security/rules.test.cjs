@@ -177,6 +177,26 @@ test('sponsor contact consent is owner-only, tied to the challenge sponsor and r
   await assertSucceeds(env.authenticatedContext('admin', { admin: true }).database().ref('sponsorConsents/sp').once('value'));
   await assertSucceeds(ana.ref('sponsorConsents/sp/ana').remove());
 });
+test('Birth date is private and write-once; reminders only before a challenge opens', async () => {
+  await env.withSecurityRulesDisabled(async ctx => {
+    await ctx.database().ref('challenges').set({ soon: { status: 'active', startsAt: Date.now() + 86400000 }, open: { status: 'active', startsAt: 1 } });
+  });
+  const ana = env.authenticatedContext('ana').database();
+  await assertFails(ana.ref('userDemographics/ana/birthDate').set('2001-13-40'));
+  await assertFails(ana.ref('userDemographics/rui/birthDate').set('2001-05-04'));
+  await assertSucceeds(ana.ref('userDemographics/ana/birthDate').set('2001-05-04'));
+  await assertFails(ana.ref('userDemographics/ana/birthDate').set('1990-05-04'));
+  await assertSucceeds(ana.ref('userDemographics/ana').update({ interests: { moda: true, desporto: true }, updatedAt: { '.sv': 'timestamp' } }));
+  await assertFails(ana.ref('userDemographics/ana/interests/moda').set('sim'));
+  await assertFails(ana.ref('userDemographics/ana/phone').set('258841111111'));
+  await assertSucceeds(ana.ref('userDemographics/ana').once('value'));
+  await assertFails(env.authenticatedContext('rui').database().ref('userDemographics/ana').once('value'));
+  await assertSucceeds(env.authenticatedContext('admin', { admin: true }).database().ref('userDemographics/ana/birthDate').set('1990-05-04'));
+  await assertSucceeds(ana.ref('challengeReminders/soon/ana').set({ '.sv': 'timestamp' }));
+  await assertFails(ana.ref('challengeReminders/soon/rui').set({ '.sv': 'timestamp' }));
+  await assertFails(ana.ref('challengeReminders/open/ana').set({ '.sv': 'timestamp' }));
+  await assertSucceeds(ana.ref('challengeReminders/soon/ana').remove());
+});
 test('Storage enforces ownership, MIME, size, and prevents replacing published entries', async () => {
   const user = env.authenticatedContext('alice').storage('gs://demo-votasnap.appspot.com');
   const anon = env.unauthenticatedContext().storage('gs://demo-votasnap.appspot.com');

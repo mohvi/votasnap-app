@@ -260,9 +260,14 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <TouchableOpacity onPress={() => router.push('/blocked-users')} style={{ paddingVertical: 16 }}>
-          <Text style={{ color: colors.primary }}>Utilizadores bloqueados</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 20 }}>
+          <TouchableOpacity onPress={() => router.push('/about-you')} style={{ paddingVertical: 16 }}>
+            <Text style={{ color: colors.primary }}>Idade e interesses</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/blocked-users')} style={{ paddingVertical: 16 }}>
+            <Text style={{ color: colors.primary }}>Utilizadores bloqueados</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Avatar + info */}
         <View style={styles.profileTop}>

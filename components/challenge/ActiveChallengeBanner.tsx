@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Challenge } from '../../hooks/useChallenges';
 import { SponsorName } from './SponsorName';
+import { challengeMinAge } from '../../services/demographics';
 import { colors, fonts, gradients } from '../../constants/theme';
 
 const META = 'rgba(255,255,255,0.85)';
@@ -63,6 +64,9 @@ export default function ActiveChallengeBanner({ challenge }: { challenge: Challe
               <Text style={styles.prize} numberOfLines={1}>{challenge.prize}</Text>
             </View>
             <TimeLeft endsAt={challenge.endsAt} />
+            {challengeMinAge(challenge) > 0 && (
+              <Text style={styles.meta}>{challengeMinAge(challenge)}+</Text>
+            )}
           </View>
         </View>
 

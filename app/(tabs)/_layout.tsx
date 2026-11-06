@@ -2,7 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs, router } from 'expo-router';
+import { get, ref } from 'firebase/database';
+import { useEffect } from 'react';
 import { ColorValue, StyleSheet, TouchableOpacity } from 'react-native';
+import { useDemographics } from '../../hooks/DemographicsProvider';
+import { auth, db } from '../../services/firebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { useActiveChallenge } from '../../hooks/useActiveChallenge';
@@ -39,10 +43,26 @@ function CreateButton({ onPress, disabled }: { onPress: () => void; disabled: bo
   );
 }
 
+// Contas antigas não têm data de nascimento: pede-a uma vez por sessão.
+let askedAboutYou = false;
+function useAskAboutYou() {
+  const { loaded, loggedIn, birthDate } = useDemographics();
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (askedAboutYou || !loaded || !loggedIn || birthDate || !uid) return;
+    askedAboutYou = true;
+    // Só depois de o perfil estar completo (quem ainda não tem username está no registo).
+    get(ref(db, `publicProfiles/${uid}/username`))
+      .then(snap => { if (snap.exists()) router.push('/about-you'); })
+      .catch(() => {});
+  }, [loaded, loggedIn, birthDate]);
+}
+
 export default function TabsLayout() {
   const { challenge } = useActiveChallenge();
   const insets = useSafeAreaInsets();
   usePushNotifications();
+  useAskAboutYou();
 
   const handleCreatePress = () => {
     if (!challenge) {
@@ -83,6 +103,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{ title: 'Início', tabBarIcon: tabIcon('home', 'home-outline') }}
+      />
+      <Tabs.Screen
+        name="challenges"
+        options={{ title: 'Desafios', tabBarIcon: tabIcon('compass', 'compass-outline') }}
       />
       <Tabs.Screen
         name="create"

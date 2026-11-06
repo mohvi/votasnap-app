@@ -210,7 +210,8 @@ export default function SetupProfileScreen() {
 
       // Conta nova com perfil completo: conta como convite, se houver quem convidou.
       await claimInviteAttribution();
-      router.replace('/(tabs)');
+      // A seguir: data de nascimento e interesses.
+      router.replace({ pathname: '/about-you', params: { next: 'tabs' } });
     } catch (e: any) {
       setError(e.message || 'Não foi possível guardar o perfil. Tenta novamente.');
     } finally {

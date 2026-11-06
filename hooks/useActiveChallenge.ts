@@ -1,11 +1,16 @@
 import { equalTo, onValue, orderByChild, query, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
+import { canAccessChallenge } from '../services/demographics';
 import { db } from '../services/firebase';
-import { Challenge, isChallengeOpen, useNow } from './useChallenges';
+import { useDemographics } from './DemographicsProvider';
+import { Challenge, challengeDeadlines, isChallengeOpen, useNow } from './useChallenges';
 
+// O desafio em destaque: o mais recente que está aberto e a que a pessoa
+// tem acesso (desafios 18+ não aparecem a menores nem a visitantes).
 export function useActiveChallenge() {
   const [candidates, setCandidates] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
+  const { age } = useDemographics();
 
   useEffect(() => {
     const challengesRef = query(
@@ -17,7 +22,6 @@ export function useActiveChallenge() {
     const unsub = onValue(challengesRef, snapshot => {
       const data = snapshot.val() || {};
       const list: Challenge[] = Object.entries(data).map(([id, value]) => ({ ...(value as Challenge), id }));
-      // Se houver mais de um por engano, escolhe o mais recente
       list.sort((a, b) => b.createdAt - a.createdAt);
       setCandidates(list);
       setLoading(false);
@@ -26,8 +30,8 @@ export function useActiveChallenge() {
     return () => unsub();
   }, []);
 
-  const now = useNow(candidates.map(c => c.endsAt));
-  const challenge = candidates.find(c => isChallengeOpen(c, now)) ?? null;
+  const now = useNow(candidates.flatMap(challengeDeadlines));
+  const challenge = candidates.find(c => isChallengeOpen(c, now) && canAccessChallenge(c, age)) ?? null;
 
   return { challenge, loading };
 }
