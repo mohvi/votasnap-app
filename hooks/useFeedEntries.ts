@@ -3,7 +3,7 @@ import { auth } from '../services/firebase';
 import { useBlockedUsers } from './BlockedUsersProvider';
 import { challengeDeadlines, isChallengeOpen, useNow } from './useChallenges';
 import { useDemographics } from './DemographicsProvider';
-import { canAccessChallenge, challengeMinAge } from '../services/demographics';
+import { challengeMinAge, isChallengeListed } from '../services/demographics';
 import { useChallengesScope, useEntriesFor, useMyVotes, useProfiles } from './useScopedData';
 
 export interface FeedEntry {
@@ -35,10 +35,10 @@ export function useFeedEntries() {
   // Só desafios activos, as suas publicações e o voto do próprio utilizador.
   const { challenges: activeChallenges, loaded: challengesLoaded } = useChallengesScope('active');
   // Desafios com idade mínima só para quem a declarou (nem se descarregam as publicações).
-  const { age } = useDemographics();
+  const { age, province } = useDemographics();
   const challenges = useMemo(
-    () => Object.fromEntries(Object.entries<any>(activeChallenges).filter(([, c]) => canAccessChallenge(c, age))),
-    [activeChallenges, age],
+    () => Object.fromEntries(Object.entries<any>(activeChallenges).filter(([, c]) => isChallengeListed(c, age, province))),
+    [activeChallenges, age, province],
   );
   const challengeIds = useMemo(() => Object.keys(challenges), [challenges]);
   const { entries: entriesByChallenge, loaded: entriesLoaded } = useEntriesFor(challengeIds);

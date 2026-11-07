@@ -1,6 +1,6 @@
 import { equalTo, onValue, orderByChild, query, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
-import { canAccessChallenge } from '../services/demographics';
+import { isChallengeListed } from '../services/demographics';
 import { db } from '../services/firebase';
 import { useDemographics } from './DemographicsProvider';
 import { Challenge, challengeDeadlines, isChallengeOpen, useNow } from './useChallenges';
@@ -10,7 +10,7 @@ import { Challenge, challengeDeadlines, isChallengeOpen, useNow } from './useCha
 export function useActiveChallenge() {
   const [candidates, setCandidates] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
-  const { age } = useDemographics();
+  const { age, province } = useDemographics();
 
   useEffect(() => {
     const challengesRef = query(
@@ -31,7 +31,7 @@ export function useActiveChallenge() {
   }, []);
 
   const now = useNow(candidates.flatMap(challengeDeadlines));
-  const challenge = candidates.find(c => isChallengeOpen(c, now) && canAccessChallenge(c, age)) ?? null;
+  const challenge = candidates.find(c => isChallengeOpen(c, now) && isChallengeListed(c, age, province)) ?? null;
 
   return { challenge, loading };
 }

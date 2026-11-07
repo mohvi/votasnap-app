@@ -26,6 +26,8 @@ export interface Challenge {
   // Idade mínima (0, 16 ou 18). Desafios de álcool são sempre 18+.
   minAge?: number | null;
   alcohol?: boolean | null;
+  // Desafio regional: só participa quem tem uma destas províncias no perfil.
+  provinces?: string[] | null;
   // Prémios por posição (o 1.º também está em `prize`) e como levantar.
   prizes?: string[] | null;
   pickupInfo?: string | null;

@@ -22,8 +22,9 @@ import { colors, gradients } from '../../constants/theme';
 import ChallengeEndedScreen from '../../components/challenge/ChallengeEndedScreen';
 import { challengeDeadlines, challengePrizes, challengeStartsAt, isChallengeOpen, isChallengeUpcoming, useNow } from '../../hooks/useChallenges';
 import { useDemographics } from '../../hooks/DemographicsProvider';
-import { canAccessChallenge, challengeMinAge } from '../../services/demographics';
+import { canAccessChallenge, canJoinRegion, challengeMinAge, regionLabel } from '../../services/demographics';
 import { AgeBadge, AgeLockedScreen } from '../../components/challenge/AgeNotice';
+import { RegionTag } from '../../components/challenge/RegionTag';
 import ReminderButton from '../../components/challenge/ReminderButton';
 
 interface Entry {
@@ -70,7 +71,7 @@ export default function ChallengeDetailScreen() {
   const uid = auth.currentUser?.uid;
   const { isLoggedIn } = useAuth();
   const now = useNow(challengeDeadlines(challenge));
-  const { age } = useDemographics();
+  const { age, province } = useDemographics();
 
   useEffect(() => {
     const unsub = onValue(ref(db, `challenges/${id}`), snap => {
@@ -236,6 +237,7 @@ export default function ChallengeDetailScreen() {
         <View style={styles.info}>
           <Text style={styles.title}>{challenge.title}</Text>
           <Text style={styles.description}>{challenge.description}</Text>
+          <RegionTag challenge={challenge} style={{ marginTop: 0, marginBottom: 10 }} />
           <AgeBadge minAge={minAge} alcohol={!!challenge.alcohol} style={{ marginBottom: 16 }} />
 
           {/* Prémios por posição e como levantar */}
@@ -287,7 +289,15 @@ export default function ChallengeDetailScreen() {
           {/* Acções */}
           {!isEnded && !upcoming && (
             <View style={styles.actions}>
-              {!hasEntered ? (
+              {!hasEntered && isLoggedIn && !canJoinRegion(challenge, province) ? (
+                <View style={styles.enteredBadge}>
+                  <Text style={styles.enteredText}>
+                    {province
+                      ? `Só participa quem vive em ${regionLabel(challenge)}. Podes votar e partilhar.`
+                      : 'Indica a tua província no perfil para participar.'}
+                  </Text>
+                </View>
+              ) : !hasEntered ? (
                 <TouchableOpacity
                   activeOpacity={0.85}
                   style={styles.btnWrap}

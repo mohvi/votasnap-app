@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, gradients } from '../../constants/theme';
 import { challengeDeadlines, isChallengeOpen, useNow } from '../../hooks/useChallenges';
 import { useDemographics } from '../../hooks/DemographicsProvider';
-import { canAccessChallenge } from '../../services/demographics';
+import { isChallengeListed } from '../../services/demographics';
 import { useChallengesScope, useEntriesFor, useProfiles } from '../../hooks/useScopedData';
 
 interface RankEntry {
@@ -59,10 +59,10 @@ export default function RankingScreen() {
 
   // Só desafios activos e as respectivas publicações; perfis pedidos por autor.
   const { challenges: activeChallenges, loaded: challengesLoaded } = useChallengesScope('active');
-  const { age } = useDemographics();
+  const { age, province } = useDemographics();
   const liveChallenges = useMemo(
-    () => Object.fromEntries(Object.entries<any>(activeChallenges).filter(([, c]) => canAccessChallenge(c, age))),
-    [activeChallenges, age],
+    () => Object.fromEntries(Object.entries<any>(activeChallenges).filter(([, c]) => isChallengeListed(c, age, province))),
+    [activeChallenges, age, province],
   );
   const challengeIds = useMemo(() => Object.keys(liveChallenges), [liveChallenges]);
   const { entries: liveEntries, loaded: entriesLoaded } = useEntriesFor(challengeIds);

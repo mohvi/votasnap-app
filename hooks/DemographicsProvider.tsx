@@ -10,9 +10,11 @@ interface Demographics {
   birthDate: string | null;
   age: number | null;
   interests: string[];
+  // Código da província do perfil (ex.: 'MP'), para desafios regionais.
+  province: string | null;
 }
 
-const EMPTY: Demographics = { loaded: false, loggedIn: false, birthDate: null, age: null, interests: [] };
+const EMPTY: Demographics = { loaded: false, loggedIn: false, birthDate: null, age: null, interests: [], province: null };
 const Context = createContext<Demographics>(EMPTY);
 
 // Idade e interesses da conta actual, partilhados por toda a app.
@@ -21,26 +23,33 @@ export function DemographicsProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let unsubscribe = () => {};
+    let unsubscribeProvince = () => {};
     const stopAuth = onAuthStateChanged(auth, user => {
       unsubscribe();
+      unsubscribeProvince();
       if (!user) { setValue({ ...EMPTY, loaded: true }); return; }
       setValue({ ...EMPTY, loggedIn: true });
+      unsubscribeProvince = onValue(ref(db, `users/${user.uid}/province`), snap => {
+        const province = typeof snap.val() === 'string' && snap.val() ? snap.val() : null;
+        setValue(v => ({ ...v, province }));
+      }, error => console.warn('Não foi possível ler a província:', error.message));
       unsubscribe = onValue(ref(db, `userDemographics/${user.uid}`), snap => {
         const data = snap.val() || {};
         const birthDate = typeof data.birthDate === 'string' ? data.birthDate : null;
-        setValue({
+        setValue(v => ({
           loaded: true,
           loggedIn: true,
           birthDate,
           age: ageFrom(birthDate),
           interests: Object.keys(data.interests || {}).filter(k => data.interests[k] === true),
-        });
+          province: v.province,
+        }));
       }, error => {
         console.warn('Não foi possível ler a idade/interesses:', error.message);
-        setValue({ ...EMPTY, loaded: true, loggedIn: true });
+        setValue(v => ({ ...EMPTY, loaded: true, loggedIn: true, province: v.province }));
       });
     });
-    return () => { stopAuth(); unsubscribe(); };
+    return () => { stopAuth(); unsubscribe(); unsubscribeProvince(); };
   }, []);
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

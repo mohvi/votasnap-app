@@ -1,5 +1,6 @@
 import { ref, serverTimestamp, set, update } from 'firebase/database';
 import { auth, db } from './firebase';
+import PROVINCES from '../hooks/useProvinces';
 
 // Idade e interesses ficam em userDemographics/{uid}: só o próprio e a
 // administração os lêem. As marcas só recebem números agregados (faixas etárias).
@@ -54,6 +55,38 @@ export function challengeMinAge(challenge: { minAge?: number | null; alcohol?: b
 export function canAccessChallenge(challenge: Parameters<typeof challengeMinAge>[0], age: number | null): boolean {
   const min = challengeMinAge(challenge);
   return min === 0 || (age !== null && age >= min);
+}
+
+// Províncias de um desafio regional (códigos como 'SF'). Vazio = nacional.
+export function challengeProvinces(challenge: { provinces?: string[] | Record<string, unknown> | null } | null | undefined): string[] {
+  const p = challenge?.provinces;
+  if (Array.isArray(p)) return p.filter(x => typeof x === 'string' && x);
+  if (p && typeof p === 'object') return Object.values(p).filter((x): x is string => typeof x === 'string' && !!x);
+  return [];
+}
+
+// "Sofala" ou "Maputo e Maputo Cidade"; vazio nos desafios nacionais.
+export function regionLabel(challenge: Parameters<typeof challengeProvinces>[0]): string {
+  const names = challengeProvinces(challenge).map(code => PROVINCES.find(p => p.code === code)?.name || code);
+  if (names.length <= 1) return names[0] || '';
+  return `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+}
+
+// Pode participar: desafio nacional, ou a província do perfil está na lista.
+export function canJoinRegion(challenge: Parameters<typeof challengeProvinces>[0], province: string | null): boolean {
+  const list = challengeProvinces(challenge);
+  return list.length === 0 || (!!province && list.includes(province));
+}
+
+// Aparece no feed, na montra e no ranking: idade suficiente e, se o desafio é
+// regional, a província certa. Quem não tem província (visitantes) vê tudo,
+// mas só participa quem vive lá. Votar continua aberto a todos pelo link.
+export function isChallengeListed(
+  challenge: Parameters<typeof challengeMinAge>[0] & Parameters<typeof challengeProvinces>[0],
+  age: number | null,
+  province: string | null,
+): boolean {
+  return canAccessChallenge(challenge, age) && (!province || canJoinRegion(challenge, province));
 }
 
 export async function saveBirthDate(birthDate: string) {

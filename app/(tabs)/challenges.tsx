@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AgeBadge } from '../../components/challenge/AgeNotice';
+import { RegionTag } from '../../components/challenge/RegionTag';
 import ReminderButton from '../../components/challenge/ReminderButton';
 import { SponsorName } from '../../components/challenge/SponsorName';
 import AuthPrompt from '../../components/ui/AuthPrompt';
@@ -15,7 +16,7 @@ import {
   Challenge, challengeDeadlines, challengePrizes, challengeStartsAt, isChallengeOpen, isChallengeUpcoming, useNow,
 } from '../../hooks/useChallenges';
 import { useChallengesScope, useProfiles } from '../../hooks/useScopedData';
-import { canAccessChallenge, challengeMinAge } from '../../services/demographics';
+import { canAccessChallenge, challengeMinAge, isChallengeListed } from '../../services/demographics';
 import { db } from '../../services/firebase';
 
 const HOUR = 3600000;
@@ -93,13 +94,13 @@ function SectionTitle({ icon, title, count }: { icon: any; title: string; count?
 
 export default function ChallengesScreen() {
   const { challenges: active, loaded } = useChallengesScope('active');
-  const { age, interests } = useDemographics();
+  const { age, interests, province } = useDemographics();
   const { winners, media } = useWinners();
   const [showAuth, setShowAuth] = useState(false);
 
   const all = useMemo(
-    () => Object.entries<any>(active).map(([id, c]) => ({ ...c, id }) as Challenge).filter(c => canAccessChallenge(c, age)),
-    [active, age],
+    () => Object.entries<any>(active).map(([id, c]) => ({ ...c, id }) as Challenge).filter(c => isChallengeListed(c, age, province)),
+    [active, age, province],
   );
   const now = useNow(all.flatMap(challengeDeadlines));
   const liked = (c: Challenge) => (interests.includes(c.category) ? 0 : 1);
@@ -150,6 +151,7 @@ export default function ChallengesScreen() {
                   <Text style={styles.metaText}>{c.totalParticipants || 0}</Text>
                 </View>
               </View>
+              <RegionTag challenge={c} />
               <AgeBadge minAge={challengeMinAge(c)} alcohol={!!c.alcohol} />
             </View>
           </TouchableOpacity>
@@ -175,6 +177,7 @@ export default function ChallengesScreen() {
                       onNeedLogin={() => setShowAuth(true)}
                     />
                   </View>
+                  <RegionTag challenge={c} />
                   <AgeBadge minAge={challengeMinAge(c)} alcohol={!!c.alcohol} />
                 </View>
               </TouchableOpacity>
